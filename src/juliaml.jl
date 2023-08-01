@@ -10,6 +10,7 @@ using JET
 using StaticArrays
 
 
+
 # almost BLAS level speed by just doing a silly @turbo
 function mygemmavx!(C::Matrix{Float32}, A::Matrix{Float32}, B::Matrix{Float32})
     @turbo for m ∈ axes(A, 1), n ∈ axes(B, 2)
