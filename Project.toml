@@ -1,0 +1,4 @@
+name = "juliaml"
+uuid = "7d1df856-ea70-4f03-8da9-0416cf4631e2"
+authors = ["nick <nlampri@gmail.com>"]
+version = "0.1.0"
