@@ -1,8 +1,8 @@
-module juliaml
+# module juliaml
 
 using LinearAlgebra
 using LoopVectorization
-#using Plots
+using Plots
 using BenchmarkTools
 using Random
 using Statistics: mean, std
@@ -13,8 +13,8 @@ include("utils.jl")
 input_size = 2
 output_size = 1
 hidden_size = 32
-activation = relu
-activation_prime = relu_prime
+activation = gelu
+activation_prime = gelu_prime
 
 model = MLP(input_size, hidden_size, output_size, activation, activation_prime)
 
@@ -35,8 +35,7 @@ display(pullback)
 
 
 
-
 # lmao flux why are u so bad
 # i deleted the flux benchmarks but if u want try urselves
 # josh doesnt know multivariate calc LMAOO
-end # module juliaml
+# end # module juliaml

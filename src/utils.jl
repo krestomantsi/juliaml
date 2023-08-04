@@ -39,6 +39,25 @@ function leaky_relu_prime(x::Matrix{Float32})::Matrix{Float32}
     ifelse.(x .> 0.0f0, 1.0f0, 0.01f0)
 end
 
+function gelu(x::Matrix{Float32})::Matrix{Float32}
+    pif32 = Float32(pi)
+    @. 0.5f0 * x * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3)))
+end
+
+function gelu(x)
+    pif32 = Float32(pi)
+    0.5f0 * x * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3)))
+end
+
+function gelu_prime(x::Matrix{Float32})::Matrix{Float32}
+    pif32 = Float32(pi)
+    @. 0.5f0 * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) + 0.5f0 * x * (1.0f0 - tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) * (sqrt(2.0f0 / pif32) * (1.0f0 + 0.134145f0 * x^2))
+end
+
+function gelu_prime(x)
+    pif32 = Float32(pi)
+    0.5f0 * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) + 0.5f0 * x * (1.0f0 - tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) * (sqrt(2.0f0 / pif32) * (1.0f0 + 0.134145f0 * x^2))
+end
 
 function none_activation(x::Matrix{Float32})::Matrix{Float32}
     x
@@ -69,7 +88,7 @@ end
 
 # taken from simple chains
 @inline function dense(
-    f::Union{typeof(relu),typeof(swish),typeof(leaky_relu),typeof(none_activation)},
+    f::Union{typeof(relu),typeof(gelu),typeof(leaky_relu),typeof(none_activation)},
     W::Matrix{Float32},
     b::Matrix{Float32},
     x::Matrix{Float32}
@@ -88,8 +107,8 @@ end
 struct Dense
     weights::Matrix{Float32}
     bias::Matrix{Float32}
-    activation::Union{typeof(relu),typeof(swish),typeof(leaky_relu),typeof(none_activation)}
-    activation_prime::Union{typeof(relu_prime),typeof(swish_prime),typeof(leaky_relu_prime),typeof(none_activation_prime)}
+    activation::Union{typeof(relu),typeof(gelu),typeof(leaky_relu),typeof(none_activation)}
+    activation_prime::Union{typeof(relu_prime),typeof(gelu_prime),typeof(leaky_relu_prime),typeof(none_activation_prime)}
 end
 # forward call of Dense
 function (d::Dense)(x::Matrix{Float32})::Matrix{Float32}
@@ -153,6 +172,7 @@ end
 function backward(d::Dense, x::Matrix{Float32}, pullback::Matrix{Float32})
     bias = pullback |> copy
     weights = mygem(pullback, x' |> collect)
+    #pullback = (d.weights' * pullback) .* d.activation_prime(x)
     pullback = mygem(d.weights' |> collect, pullback) .* d.activation_prime(x)
     grads = DenseGradient(weights, bias)
     return pullback, grads
