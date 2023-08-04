@@ -153,7 +153,6 @@ end
 function backward(d::Dense, x::Matrix{Float32}, pullback::Matrix{Float32})
     bias = pullback |> copy
     weights = mygem(pullback, x' |> collect)
-    #pullback = (d.weights' * pullback) .* d.activation_prime(x)
     pullback = mygem(d.weights' |> collect, pullback) .* d.activation_prime(x)
     grads = DenseGradient(weights, bias)
     return pullback, grads

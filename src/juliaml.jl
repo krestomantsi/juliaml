@@ -1,4 +1,4 @@
-#module juliaml
+module juliaml
 
 using LinearAlgebra
 using LoopVectorization
@@ -39,4 +39,4 @@ display(pullback)
 # lmao flux why are u so bad
 # i deleted the flux benchmarks but if u want try urselves
 # josh doesnt know multivariate calc LMAOO
-#end # module juliaml
+end # module juliaml
