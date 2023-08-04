@@ -29,6 +29,8 @@ function relu_prime(x::Matrix{Float32})::Matrix{Float32}
     x .> 0.0f0
 end
 
+leaky_relu(x) = max(x, 0.01f0 * x)
+
 function leaky_relu(x::Matrix{Float32})::Matrix{Float32}
     max.(x, 0.01f0 .* x)
 end
@@ -49,11 +51,11 @@ function none_activation_prime(x::Matrix{Float32})::Matrix{Float32}
     ones(eltype(x), size(x))
 end
 
-function swish_scalar(x::Float32)::Float32
-    @fastmath x / (1.0f0 + exp(-x))
+function swish(x::Float32)::Float32
+    x / (1.0f0 + exp(-x))
 end
 function swish(x::Matrix{Float32})::Matrix{Float32}
-    @. map(swish_scalar, x)
+    @. map(swish, x)
 end
 
 function swish_prime(x::Matrix{Float32})::Matrix{Float32}
@@ -67,7 +69,7 @@ end
 
 # taken from simple chains
 @inline function dense(
-    f::Union{typeof(relu),typeof(swish),typeof(none_activation)},
+    f::Union{typeof(relu),typeof(swish),typeof(leaky_relu),typeof(none_activation)},
     W::Matrix{Float32},
     b::Matrix{Float32},
     x::Matrix{Float32}
@@ -78,7 +80,7 @@ end
         for k ∈ axes(W, 2)
             Cmn += W[m, k] * x[k, n]
         end
-        C[m, n] = relu_scalar(Cmn + b[m])
+        C[m, n] = f(Cmn + b[m])
     end
     return C
 end
