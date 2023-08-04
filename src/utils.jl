@@ -104,7 +104,7 @@ end
     return C
 end
 
-struct Dense
+mutable struct Dense
     weights::Matrix{Float32}
     bias::Matrix{Float32}
     activation::Union{typeof(relu),typeof(gelu),typeof(leaky_relu),typeof(none_activation)}
@@ -125,7 +125,7 @@ struct MLP
     # layers::Tuple{Dense,Dense,Dense}
 end
 
-function (mlp::MLP)(x::Matrix{Float32})::Matrix{Float32}
+@inline function (mlp::MLP)(x::Matrix{Float32})::Matrix{Float32}
     output = x
     for layer in mlp.layers
         output = layer(output)
@@ -170,10 +170,86 @@ function MLP(input_size::Int, hidden_size::Int, output_size::Int, activation::Fu
 end
 
 function backward(d::Dense, x::Matrix{Float32}, pullback::Matrix{Float32})
-    bias = pullback |> copy
+    m = size(x, 2)
+    bias = sum(pullback, dims=2)
     weights = mygem(pullback, x' |> collect)
     #pullback = (d.weights' * pullback) .* d.activation_prime(x)
     pullback = mygem(d.weights' |> collect, pullback) .* d.activation_prime(x)
     grads = DenseGradient(weights, bias)
     return pullback, grads
+end
+
+function backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime::typeof(mse_prime))
+    # forward pass
+    output::Vector{Matrix{Float32}} = []
+    push!(output, x)
+    for layer in mlp.layers
+        x = layer(x)
+        push!(output, x)
+    end
+    # backward pass
+    pullback = loss_prime(output[end], y)
+    grads = []
+    for i in length(mlp.layers):-1:1
+        pullback, grad = backward(mlp.layers[i], output[i], pullback)
+        push!(grads, grad)
+    end
+    return output, MLPGradient(tuple(reverse(grads)...))
+end
+
+struct SGDw
+    lr::Float32
+    weight_decay::Float32
+end
+
+function sgd!(mlp::MLP, grads::MLPGradient, lr::Float32)
+    for ii in 1:length(mlp.layers)
+        mlp.layers[ii].weights = mlp.layers[ii].weights .- lr * grads.layers[ii].weights
+        mlp.layers[ii].bias = mlp.layers[ii].bias .- lr * grads.layers[ii].bias
+    end
+end
+
+function trainsgd!(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss::typeof(mse), loss_prime::typeof(mse_prime), epochs, lr)
+    for ii in 1:epochs
+        outputs, grads = backward(mlp, x, y, loss_prime)
+        sgd!(mlp, grads, lr)
+        if ii % 1500 == 0
+            println("epoch ", ii, " || loss: ", loss(mlp(x), y))
+        end
+    end
+end
+
+function displaynetwork(mlp, x, y, loss_prime)
+    outputs, grads = backward(mlp, x, y, loss_prime)
+    ind = 1
+    for m in mlp.layers
+        histogram(m.weights |> vec)
+        title!("weights layer " * string(ind) * ".png")
+        savefig("weights layer " * string(ind) * ".png")
+        histogram(m.bias |> vec)
+        title!("bias layer " * string(ind) * ".png")
+        savefig("bias layer " * string(ind) * ".png")
+        ind += 1
+    end
+    ind = 0
+    for ii in outputs
+        histogram(ii |> vec)
+        title!("outputs layer " * string(ind) * ".png")
+        savefig("outputs layer " * string(ind) * ".png")
+        ind += 1
+    end
+end
+
+function MLP_det(input_size::Int, hidden_size::Int, output_size::Int, activation::Function, activation_prime::Function)
+    weights1 = ones(Float32, hidden_size, input_size)
+    bias1 = zeros(Float32, hidden_size, 1)
+    weights2 = ones(Float32, hidden_size, hidden_size)
+    bias2 = zeros(Float32, hidden_size, 1)
+    weights3 = ones(Float32, output_size, hidden_size)
+    bias3 = zeros(Float32, output_size, 1)
+    layers = (
+        Dense(weights1, bias1, activation, activation_prime),
+        Dense(weights2, bias2, activation, activation_prime),
+        Dense(weights3, bias3, none_activation, none_activation_prime))
+    MLP(layers)
 end
