@@ -20,7 +20,7 @@ opt = Optimisers.Descent(0.01)
 opt_state = Optimisers.setup(opt, model)
 params = Flux.params(model)
 
-for ii in 1:epochs
+@time for ii in 1:epochs
     grads, = Flux.gradient((m) -> Flux.Losses.mse(m(x), y), model)
     Optimisers.update!(opt_state, model, grads)
     if ii % 1500 === 0

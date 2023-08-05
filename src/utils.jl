@@ -51,12 +51,12 @@ end
 
 function gelu_prime(x::Matrix{Float32})::Matrix{Float32}
     pif32 = Float32(pi)
-    @. 0.5f0 * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) + 0.5f0 * x * (1.0f0 - tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) * (sqrt(2.0f0 / pif32) * (1.0f0 + 0.134145f0 * x^2))
+    @fastmath @. 0.5f0 * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) + 0.5f0 * x * (1.0f0 - tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) * (sqrt(2.0f0 / pif32) * (1.0f0 + 0.134145f0 * x^2))
 end
 
 function gelu_prime(x)
     pif32 = Float32(pi)
-    0.5f0 * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) + 0.5f0 * x * (1.0f0 - tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) * (sqrt(2.0f0 / pif32) * (1.0f0 + 0.134145f0 * x^2))
+    @fastmath 0.5f0 * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) + 0.5f0 * x * (1.0f0 - tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) * (sqrt(2.0f0 / pif32) * (1.0f0 + 0.134145f0 * x^2))
 end
 
 function none_activation(x::Matrix{Float32})::Matrix{Float32}
@@ -74,7 +74,7 @@ function swish(x::Float32)::Float32
     x / (1.0f0 + exp(-x))
 end
 function swish(x::Matrix{Float32})::Matrix{Float32}
-    @. map(swish, x)
+    @fastmath @. map(swish, x)
 end
 
 function swish_prime(x::Matrix{Float32})::Matrix{Float32}
@@ -104,7 +104,7 @@ end
     return C
 end
 
-mutable struct Dense
+struct Dense
     weights::Matrix{Float32}
     bias::Matrix{Float32}
     activation::Union{typeof(relu),typeof(gelu),typeof(leaky_relu),typeof(none_activation)}
@@ -121,8 +121,9 @@ end
 # end
 
 struct MLP
-    layers::Tuple{Vararg{Dense}}
+    # layers::Tuple{Vararg{Dense}}
     # layers::Tuple{Dense,Dense,Dense}
+    layers::Vector{Dense}
 end
 
 @inline function (mlp::MLP)(x::Matrix{Float32})::Matrix{Float32}
@@ -142,7 +143,8 @@ struct DenseGradient
 end
 
 struct MLPGradient
-    layers::Tuple{Vararg{DenseGradient}}
+    # layers::Tuple{Vararg{DenseGradient}}
+    layers::Vector{DenseGradient}
 end
 
 
@@ -162,10 +164,14 @@ function MLP(input_size::Int, hidden_size::Int, output_size::Int, activation::Fu
     bias2 = zeros(Float32, hidden_size, 1)
     weights3 = (randn(Float32, output_size, hidden_size) ./ (sqrt(hidden_size) |> Float32))
     bias3 = zeros(Float32, output_size, 1)
-    layers = (
+    # layers = (
+    #     Dense(weights1, bias1, activation, activation_prime),
+    #     Dense(weights2, bias2, activation, activation_prime),
+    #     Dense(weights3, bias3, none_activation, none_activation_prime))
+    layers = [
         Dense(weights1, bias1, activation, activation_prime),
         Dense(weights2, bias2, activation, activation_prime),
-        Dense(weights3, bias3, none_activation, none_activation_prime))
+        Dense(weights3, bias3, none_activation, none_activation_prime)]
     MLP(layers)
 end
 
@@ -194,7 +200,7 @@ function backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime::
         pullback, grad = backward(mlp.layers[i], output[i], pullback)
         push!(grads, grad)
     end
-    return output, MLPGradient(tuple(reverse(grads)...))
+    return output, MLPGradient(reverse(grads))
 end
 
 struct SGDw
@@ -202,21 +208,26 @@ struct SGDw
     weight_decay::Float32
 end
 
-function sgd!(mlp::MLP, grads::MLPGradient, lr::Float32)
+function sgd(mlp::MLP, grads::MLPGradient, lr::Float32)
+    layers = []
     for ii in 1:length(mlp.layers)
-        mlp.layers[ii].weights = mlp.layers[ii].weights .- lr * grads.layers[ii].weights
-        mlp.layers[ii].bias = mlp.layers[ii].bias .- lr * grads.layers[ii].bias
+        weights = mlp.layers[ii].weights .- lr * grads.layers[ii].weights
+        bias = mlp.layers[ii].bias .- lr * grads.layers[ii].bias
+        Dense(weights, bias, mlp.layers[ii].activation, mlp.layers[ii].activation_prime)
+        push!(layers, Dense(weights, bias, mlp.layers[ii].activation, mlp.layers[ii].activation_prime))
     end
+    MLP(layers)
 end
 
-function trainsgd!(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss::typeof(mse), loss_prime::typeof(mse_prime), epochs, lr)
+function trainsgd(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss::typeof(mse), loss_prime::typeof(mse_prime), epochs, lr)
     for ii in 1:epochs
         outputs, grads = backward(mlp, x, y, loss_prime)
-        sgd!(mlp, grads, lr)
+        mlp = sgd(mlp, grads, lr)
         if ii % 1500 == 0
             println("epoch ", ii, " || loss: ", loss(mlp(x), y))
         end
     end
+    return mlp
 end
 
 function displaynetwork(mlp, x, y, loss_prime)

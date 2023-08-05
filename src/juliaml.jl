@@ -13,8 +13,8 @@ include("utils.jl")
 input_size = 1
 output_size = 1
 hidden_size = 32
-activation = gelu
-activation_prime = gelu_prime
+activation = relu
+activation_prime = relu_prime
 epochs = 100000
 lr = 0.01f0
 n = 100
@@ -29,10 +29,10 @@ y = sin.(2 * Float32(pi) * x)
 y2 = model(x)
 
 # println("Inference benchmark")
-# display(@benchmark y2 = model(x))
+display(@benchmark y2 = model(x))
 
-@report_opt model(x)
-@report_opt model.layers[1](x)
+# @report_opt model(x)
+# @report_opt model.layers[1](x)
 
 
 pullback, grads = backward(model.layers[1], rand(Float32, input_size, 10) |> collect, ones(Float32, 32, 10) |> collect)
@@ -56,7 +56,12 @@ end
 # model.layers[2].weights
 
 
-@time trainsgd!(model, x, y, mse, mse_prime, epochs, lr)
+@time model = trainsgd(model, x, y, mse, mse_prime, epochs, lr)
+# excuse me julia what is this??
+# everytime i run the same script in the same file
+# the training gets slower and slower
+# possible memory leak?? thanks julia!
+
 displaynetwork(model, x, y, mse_prime)
 
 y2 = model(x)
@@ -65,6 +70,7 @@ scatter(x', y', label="data")
 plot!(x', y2', label="model")
 savefig("result.png")
 
+GC.gc()
 
 
 # lmao flux why are u so bad
