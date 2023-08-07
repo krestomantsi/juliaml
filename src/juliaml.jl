@@ -73,11 +73,4 @@ savefig("result.png")
 
 
 
-# lmao flux why are u so bad
-# i deleted the flux benchmarks but if u want try urselves
-# josh doesnt know multivariate calc LMAOO
 # end # module juliaml
-
-x2 = LinRange(-5, 5, 100)' |> collect .|> Float32
-y2 = gelu_prime(x2)
-plot(x2', y2')
