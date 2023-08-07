@@ -49,14 +49,33 @@ function gelu(x)
     0.5f0 * x * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3)))
 end
 
-function gelu_prime(x::Matrix{Float32})::Matrix{Float32}
+# pub fn gelu_prime_scalar(x: f32) -> f32 {
+#     let PI = std::f32::consts::PI;
+#     let lam = (2.0f32 / PI).sqrt();
+#     let a = 0.044715f32;
+#     let tanh_term = ((x + a * x.powi(3)) * lam).tanh();
+#     //(1 + x (1 + 3 x^2 α) λ Sech[(x + x^3 α) λ]^2 + Tanh[(x + x^3 α) λ])/2}
+#     0.5f32
+#         * (1.0f32
+#             + x * (1.0f32 + 3.0f32 * x.powi(2) * a)
+#                 * lam
+#                 * sech_scalar(((x + x.powi(3) * a) * lam)).powi(2)
+#             + tanh_term)
+# }
+@inline function gelu_prime(x::Matrix{Float32})::Matrix{Float32}
     pif32 = Float32(pi)
-    @fastmath @. 0.5f0 * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) + 0.5f0 * x * (1.0f0 - tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) * (sqrt(2.0f0 / pif32) * (1.0f0 + 0.134145f0 * x^2))
+    lam = sqrt(2.0f0 / pif32)
+    a = 0.044715f0
+    tanh_term = tanh.(lam .* (x .+ a .* x .^ 3))
+    0.5f0 .* (1.0f0 .+ x .* (1.0f0 .+ 3.0f0 .* x .^ 2 .* a) .* lam .* sech.(lam .* (x .+ x .^ 3 .* a)) .^ 2 .+ tanh_term)
 end
 
 function gelu_prime(x)
     pif32 = Float32(pi)
-    @fastmath 0.5f0 * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) + 0.5f0 * x * (1.0f0 - tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3))) * (sqrt(2.0f0 / pif32) * (1.0f0 + 0.134145f0 * x^2))
+    lam = sqrt(2.0f0 / pif32)
+    a = 0.044715f0
+    tanh_term = tanh(lam * (x + a * x^3))
+    0.5f0 * (1.0f0 + x * (1.0f0 + 3.0f0 * x^2 * a) * lam * sech(lam * (x + x^3 * a))^2 + tanh_term)
 end
 
 function none_activation(x::Matrix{Float32})::Matrix{Float32}
@@ -258,9 +277,9 @@ function MLP_det(input_size::Int, hidden_size::Int, output_size::Int, activation
     bias2 = zeros(Float32, hidden_size, 1)
     weights3 = ones(Float32, output_size, hidden_size)
     bias3 = zeros(Float32, output_size, 1)
-    layers = (
+    layers = [
         Dense(weights1, bias1, activation, activation_prime),
         Dense(weights2, bias2, activation, activation_prime),
-        Dense(weights3, bias3, none_activation, none_activation_prime))
+        Dense(weights3, bias3, none_activation, none_activation_prime)]
     MLP(layers)
 end

@@ -1,12 +1,14 @@
+module flux
+
 using Flux
 using Optimisers
 using Plots
 using BenchmarkTools
 
-activation = gelu
+activation = relu
 epochs = 100000
 
-x = LinRange(-1, 1, 100)' |> collect .|> Float32
+x = LinRange(-1, 1, 20)' |> collect .|> Float32
 y = sin.(2 * Float32(pi) * x)
 
 model = Chain(Dense(1, 32, activation),
@@ -16,7 +18,7 @@ model = Chain(Dense(1, 32, activation),
 maeloss(x, y) = Flux.Losses.mae(model(x), y)
 mseloss(x, y) = Flux.Losses.mse(model(x), y)
 
-opt = Optimisers.Descent(0.01)
+opt = Optimisers.Descent(0.05)
 opt_state = Optimisers.setup(opt, model)
 params = Flux.params(model)
 
@@ -28,8 +30,11 @@ params = Flux.params(model)
     end
 end
 
-y2 = model(x)
+x2 = LinRange(-1, 1, 100)' |> collect .|> Float32
+y2 = model(x2)
 scatter(x', y')
-display(plot!(x', y2'))
+display(plot!(x2', y2'))
 
 display(@benchmark y = model(x))
+
+end # module

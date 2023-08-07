@@ -16,8 +16,8 @@ hidden_size = 32
 activation = relu
 activation_prime = relu_prime
 epochs = 100000
-lr = 0.01f0
-n = 100
+lr = 0.05f0
+n = 20
 
 model = MLP(input_size, hidden_size, output_size, activation, activation_prime)
 
@@ -64,16 +64,20 @@ end
 
 displaynetwork(model, x, y, mse_prime)
 
-y2 = model(x)
+x2 = LinRange(-1, 1, 200)' |> collect .|> Float32
+y2 = model(x2)
 
 scatter(x', y', label="data")
-plot!(x', y2', label="model")
+plot!(x2', y2', label="model")
 savefig("result.png")
 
-GC.gc()
 
 
 # lmao flux why are u so bad
 # i deleted the flux benchmarks but if u want try urselves
 # josh doesnt know multivariate calc LMAOO
 # end # module juliaml
+
+x2 = LinRange(-5, 5, 100)' |> collect .|> Float32
+y2 = gelu_prime(x2)
+plot(x2', y2')
