@@ -1,4 +1,4 @@
-module flux
+# module flux
 
 using Flux
 using Optimisers
@@ -37,4 +37,4 @@ display(plot!(x2', y2'))
 
 display(@benchmark y = model(x))
 
-end # module
+# end # module

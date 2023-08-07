@@ -35,7 +35,7 @@ display(@benchmark y2 = model(x))
 # @report_opt model.layers[1](x)
 
 
-pullback, grads = backward(model.layers[1], rand(Float32, input_size, 10) |> collect, ones(Float32, 32, 10) |> collect)
+# pullback, grads = backward(model.layers[1], rand(Float32, input_size, 10) |> collect, ones(Float32, 32, 10) |> collect)
 outputs, grads = backward(model, x, y, mse_prime)
 
 # display(@benchmark outputs, grads = backward(model, x, y, mse_prime))

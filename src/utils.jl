@@ -270,12 +270,12 @@ function displaynetwork(mlp, x, y, loss_prime)
     end
 end
 
-function MLP_det(input_size::Int, hidden_size::Int, output_size::Int, activation::Function, activation_prime::Function)
+function MLP_det(input_size::Int, hidden_size::Int, hidden_size2, output_size::Int, activation::Function, activation_prime::Function)
     weights1 = ones(Float32, hidden_size, input_size)
     bias1 = zeros(Float32, hidden_size, 1)
-    weights2 = ones(Float32, hidden_size, hidden_size)
-    bias2 = zeros(Float32, hidden_size, 1)
-    weights3 = ones(Float32, output_size, hidden_size)
+    weights2 = ones(Float32, hidden_size2, hidden_size)
+    bias2 = zeros(Float32, hidden_size2, 1)
+    weights3 = ones(Float32, output_size, hidden_size2)
     bias3 = zeros(Float32, output_size, 1)
     layers = [
         Dense(weights1, bias1, activation, activation_prime),
