@@ -194,17 +194,17 @@ function MLP(input_size::Int, hidden_size::Int, output_size::Int, activation::Fu
     MLP(layers)
 end
 
-function backward(d::Dense, x::Matrix{Float32}, pullback::Matrix{Float32})
-    m = size(x, 2)
-    bias = sum(pullback, dims=2)
-    weights = mygem(pullback, x' |> collect)
-    #pullback = (d.weights' * pullback) .* d.activation_prime(x)
-    pullback = mygem(d.weights' |> collect, pullback) .* d.activation_prime(x)
+function backward(d::Dense, x::Matrix{Float32}, z::Matrix{Float32}, pullback::Matrix{Float32})
+    #m = size(x, 2) |> Float32
+    dz = pullback .* d.activation_prime(z)
+    bias = sum(dz, dims=2)
+    weights = mygem(dz, x' |> collect)
+    pullback = mygem(d.weights' |> collect, dz)
     grads = DenseGradient(weights, bias)
     return pullback, grads
 end
 
-function backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime::typeof(mse_prime))
+@inline function backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime::typeof(mse_prime))
     # forward pass
     output::Vector{Matrix{Float32}} = []
     push!(output, x)
@@ -216,7 +216,7 @@ function backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime::
     pullback = loss_prime(output[end], y)
     grads = []
     for i in length(mlp.layers):-1:1
-        pullback, grad = backward(mlp.layers[i], output[i], pullback)
+        pullback, grad = backward(mlp.layers[i], output[i], output[i+1], pullback)
         push!(grads, grad)
     end
     return output, MLPGradient(reverse(grads))
@@ -227,7 +227,7 @@ struct SGDw
     weight_decay::Float32
 end
 
-function sgd(mlp::MLP, grads::MLPGradient, lr::Float32)
+@inline function sgd(mlp::MLP, grads::MLPGradient, lr::Float32)
     layers = []
     for ii in 1:length(mlp.layers)
         weights = mlp.layers[ii].weights .- lr * grads.layers[ii].weights

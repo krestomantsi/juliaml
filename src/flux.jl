@@ -5,11 +5,11 @@ using Optimisers
 using Plots
 using BenchmarkTools
 
-activation = relu
-epochs = 100000
+activation = gelu
+epochs = 200000
 
-x = LinRange(-1, 1, 20)' |> collect .|> Float32
-y = sin.(2 * Float32(pi) * x)
+x = LinRange(-1, 1, 50)' |> collect .|> Float32
+y = sin.(4 * Float32(pi) * x)
 
 model = Chain(Dense(1, 32, activation),
     Dense(32, 32, activation),

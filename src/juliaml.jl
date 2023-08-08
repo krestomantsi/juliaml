@@ -17,14 +17,14 @@ activation = relu
 activation_prime = relu_prime
 epochs = 100000
 lr = 0.05f0
-n = 20
+n = 50
 
 model = MLP(input_size, hidden_size, output_size, activation, activation_prime)
 
 #x = randn(Float32, input_size, 1000)
 x = LinRange(-1, 1, n)' |> collect .|> Float32
 
-y = sin.(2 * Float32(pi) * x)
+y = sin.(4 * Float32(pi) * x)
 # y = x .^ 2
 y2 = model(x)
 
@@ -49,11 +49,6 @@ for ii in 1:3
     println("Layer ", ii, " grads weights size", grads.layers[ii].weights |> size)
     println("Layer ", ii, " grads bias size", grads.layers[ii].bias |> size)
 end
-
-
-# outputs, grads = backward(model, x, y, mse_prime)
-# sgd!(model, grads, lr)
-# model.layers[2].weights
 
 
 @time model = trainsgd(model, x, y, mse, mse_prime, epochs, lr)
