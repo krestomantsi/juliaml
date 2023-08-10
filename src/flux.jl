@@ -5,20 +5,21 @@ using Optimisers
 using Plots
 using BenchmarkTools
 
-activation = gelu
-epochs = 200000
+activation = Flux.relu
+epochs = 100000
+lr = 0.05f0
 
 x = LinRange(-1, 1, 50)' |> collect .|> Float32
 y = sin.(4 * Float32(pi) * x)
 
-model = Chain(Dense(1, 32, activation),
-    Dense(32, 32, activation),
-    Dense(32, 1))
+model = Chain(Flux.Dense(1, 32, activation),
+    Flux.Dense(32, 32, activation),
+    Flux.Dense(32, 1))
 
 maeloss(x, y) = Flux.Losses.mae(model(x), y)
 mseloss(x, y) = Flux.Losses.mse(model(x), y)
 
-opt = Optimisers.Descent(0.05)
+opt = Optimisers.Descent(lr)
 opt_state = Optimisers.setup(opt, model)
 params = Flux.params(model)
 

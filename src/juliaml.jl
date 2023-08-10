@@ -7,6 +7,7 @@ using BenchmarkTools
 using Random
 using Statistics: mean, std
 using JET
+using Base.Threads: Threads, @spawn
 
 include("utils.jl")
 
@@ -50,7 +51,6 @@ for ii in 1:3
     println("Layer ", ii, " grads bias size", grads.layers[ii].bias |> size)
 end
 
-
 @time model = trainsgd(model, x, y, mse, mse_prime, epochs, lr)
 # excuse me julia what is this??
 # everytime i run the same script in the same file
@@ -63,7 +63,7 @@ x2 = LinRange(-1, 1, 200)' |> collect .|> Float32
 y2 = model(x2)
 
 scatter(x', y', label="data")
-plot!(x2', y2', label="model")
+display(plot!(x2', y2', label="model"))
 savefig("result.png")
 
 
