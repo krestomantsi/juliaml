@@ -10,7 +10,6 @@
 end
 
 
-
 function mygem(A::Matrix{Float32}, B::Matrix{Float32})::Matrix{Float32}
     C = zeros(eltype(A), size(A, 1), size(B, 2))
     mygemmavx!(C, A, B)
@@ -96,7 +95,7 @@ end
 
 # taken from simple chains
 @inline function dense(
-    f::Union{typeof(relu),typeof(gelu),typeof(leaky_relu),typeof(none_activation)},
+    f::Union{typeof(relu),typeof(gelu),typeof(leaky_relu),typeof(swish),typeof(none_activation)},
     W::Matrix{Float32},
     b::Matrix{Float32},
     x::Matrix{Float32}
@@ -115,8 +114,8 @@ end
 struct Dense
     weights::Matrix{Float32}
     bias::Matrix{Float32}
-    activation::Union{typeof(relu),typeof(gelu),typeof(leaky_relu),typeof(none_activation)}
-    activation_prime::Union{typeof(relu_prime),typeof(gelu_prime),typeof(leaky_relu_prime),typeof(none_activation_prime)}
+    activation::Union{typeof(relu),typeof(gelu),typeof(swish),typeof(leaky_relu),typeof(none_activation)}
+    activation_prime::Union{typeof(relu_prime),typeof(gelu_prime),typeof(swish_prime),typeof(leaky_relu_prime),typeof(none_activation_prime)}
 end
 # forward call of Dense
 function (d::Dense)(x::Matrix{Float32})::Matrix{Float32}
@@ -216,6 +215,14 @@ struct SGDw
     weight_decay::Float32
 end
 
+struct Adam
+    lr::AbstractFloat
+    lambda::AbstractFloat
+    beta1::AbstractFloat
+    beta2::AbstractFloat
+    # to be continued
+end
+
 function sgd(mlp::MLP, grads::MLPGradient, lr::Float32)
     layers = []
     for ii in 1:length(mlp.layers)
@@ -273,12 +280,10 @@ function MLP_det(input_size::Int, hidden_size::Int, hidden_size2, output_size::I
     MLP(layers)
 end
 
-function tmapreduce(f, op, itr; tasks_per_thread::Int = 2, kwargs...)
+function tmapreduce(f, op, itr; tasks_per_thread::Int=2, kwargs...)
     chunk_size = max(1, length(itr) ÷ (tasks_per_thread * nthreads()))
     tasks = map(Iterators.partition(itr, chunk_size)) do chunk
         @spawn mapreduce(f, op, chunk; kwargs...)
     end
     mapreduce(fetch, op, tasks; kwargs...)
 end
-
-

@@ -14,11 +14,11 @@ include("utils.jl")
 input_size = 1
 output_size = 1
 hidden_size = 32
-activation = gelu
-activation_prime = gelu_prime
-epochs = 100000
+activation = relu
+activation_prime = relu_prime
+epochs = 30000
 lr = 0.05f0
-n = 50
+n = 100
 
 model = MLP(input_size, hidden_size, output_size, activation, activation_prime)
 
@@ -30,7 +30,7 @@ y = sin.(4 * Float32(pi) * x)
 y2 = model(x)
 
 # println("Inference benchmark")
-display(@benchmark y2 = model(x))
+#display(@benchmark y2 = model(x))
 
 # @report_opt model(x)
 # @report_opt model.layers[1](x)
@@ -66,6 +66,7 @@ scatter(x', y', label="data")
 display(plot!(x2', y2', label="model"))
 savefig("result.png")
 
+GC.gc()
 
 
 # end # module juliaml

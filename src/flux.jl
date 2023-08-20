@@ -6,10 +6,10 @@ using Plots
 using BenchmarkTools
 
 activation = Flux.relu
-epochs = 100000
+epochs = 30000
 lr = 0.05f0
 
-x = LinRange(-1, 1, 50)' |> collect .|> Float32
+x = LinRange(-1, 1, 20)' |> collect .|> Float32
 y = sin.(4 * Float32(pi) * x)
 
 model = Chain(Flux.Dense(1, 32, activation),
@@ -19,7 +19,7 @@ model = Chain(Flux.Dense(1, 32, activation),
 maeloss(x, y) = Flux.Losses.mae(model(x), y)
 mseloss(x, y) = Flux.Losses.mse(model(x), y)
 
-opt = Optimisers.Descent(lr)
+opt = Optimisers.Adam(lr)
 opt_state = Optimisers.setup(opt, model)
 params = Flux.params(model)
 
