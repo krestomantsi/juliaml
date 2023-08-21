@@ -287,3 +287,58 @@ function tmapreduce(f, op, itr; tasks_per_thread::Int=2, kwargs...)
     end
     mapreduce(fetch, op, tasks; kwargs...)
 end
+
+mutable struct AdamState
+    lr::AbstractFloat
+    lambda::AbstractFloat
+    beta1::AbstractFloat
+    beta2::AbstractFloat
+    epsilon::AbstractFloat
+    m::MLPGradient
+    v::MLPGradient
+    t::Int
+end
+
+@inline function fmap(mlp::MLPGradient, f)::MLPGradient
+    layers = []
+    @inbounds for ii in 1:length(mlp.layers)
+        weights = f.(mlp.layers[ii].weights)
+        bias = f.(mlp.layers[ii].bias)
+        push!(layers, DenseGradient(weights, bias))
+    end
+    MLPGradient(layers)
+end
+
+function adam_init(grads::MLPGradient, lr, lambda, beta1, beta2)::AdamState
+    m = fmap(grads, x -> 0.0f0)
+    println("m ", m)
+    v = fmap(grads, x -> 0.0f0)
+    AdamState(lr, lambda, beta1, beta2, 1.0f-8, m, v, 0)
+end
+
+function adamw(mlp::MLP, grads::MLPGradient, adam::AdamState)::MLP
+    adam.t = adam.t + 1
+    b = adam.beta1
+    b2 = adam.beta2
+    b11 = 1.0f0 - b
+    b22 = 1.0f0 - b2
+    layers = []
+    @inbounds for ii in 1:length(mlp.layers)
+        mw = b .* adam.m.layers[ii].weights + b11 .* grads.layers[ii].weights
+        mb = b .* adam.m.layers[ii].bias + b11 .* grads.layers[ii].bias
+        vw = b2 .* adam.v.layers[ii].weights + b22 .* grads.layers[ii].weights .^ 2
+        vb = b2 .* adam.v.layers[ii].bias + b22 .* grads.layers[ii].bias .^ 2
+        mhatw = mw ./ (1.0f0 - b^adam.t)
+        mhatb = mb ./ (1.0f0 - b^adam.t)
+        vhatw = vw ./ (1.0f0 - b2^adam.t)
+        vhatb = vb ./ (1.0f0 - b2^adam.t)
+        vhatw = sqrt.(vhatw)
+        vhatb = sqrt.(vhatb)
+        w = mlp.layers[ii].weights .- adam.lr .* mhatw ./ (vhatw .+ adam.epsilon) .- adam.lambda .* mlp.layers[ii].weights
+        b = mlp.layers[ii].bias .- adam.lr .* mhatb ./ (vhatb .+ adam.epsilon) .- adam.lambda .* mlp.layers[ii].bias
+
+
+        push!(layers, Dense(weights, bias, mlp.layers[ii].activation, mlp.layers[ii].activation_prime))
+    end
+
+end
