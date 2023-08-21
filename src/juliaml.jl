@@ -14,8 +14,8 @@ include("utils.jl")
 input_size = 1
 output_size = 1
 hidden_size = 32
-activation = relu
-activation_prime = relu_prime
+activation = gelu
+activation_prime = gelu_prime
 epochs = 30000
 lr = 0.05f0
 n = 100

@@ -8,8 +8,9 @@ using BenchmarkTools
 activation = Flux.relu
 epochs = 30000
 lr = 0.05f0
+n = 100
 
-x = LinRange(-1, 1, 20)' |> collect .|> Float32
+x = LinRange(-1, 1, 100)' |> collect .|> Float32
 y = sin.(4 * Float32(pi) * x)
 
 model = Chain(Flux.Dense(1, 32, activation),

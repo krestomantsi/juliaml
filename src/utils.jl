@@ -123,13 +123,7 @@ function (d::Dense)(x::Matrix{Float32})::Matrix{Float32}
 end
 
 
-# struct MLP
-#     layers::Vector{Dense}
-# end
-
 struct MLP
-    # layers::Tuple{Vararg{Dense}}
-    # layers::Tuple{Dense,Dense,Dense}
     layers::Vector{Dense}
 end
 
@@ -286,4 +280,9 @@ function tmapreduce(f, op, itr; tasks_per_thread::Int=2, kwargs...)
         @spawn mapreduce(f, op, chunk; kwargs...)
     end
     mapreduce(fetch, op, tasks; kwargs...)
+end
+
+struct AdamState
+    m::Matrix{Float32}
+    v::Matrix{Float32}
 end
