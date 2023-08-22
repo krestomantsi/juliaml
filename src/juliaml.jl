@@ -14,10 +14,11 @@ include("utils.jl")
 input_size = 1
 output_size = 1
 hidden_size = 32
-activation = gelu
-activation_prime = gelu_prime
+activation = relu
+activation_prime = relu_prime
 epochs = 30000
-lr = 0.05f0
+lr = 0.01f0
+wd = 0.000f0
 n = 20
 
 model = MLP(input_size, hidden_size, output_size, activation, activation_prime)
@@ -41,6 +42,8 @@ outputs, grads = backward(model, x, y, mse_prime)
 
 # display(@benchmark outputs, grads = backward(model, x, y, mse_prime))
 
+@time model = train!(model, x, y, lr, wd, epochs, mse, mse_prime, false)
+
 for ii in 1:3
     println("Layer ", ii, "------------------------------------")
     local outputs, grads = backward(model, x, y, mse_prime)
@@ -51,11 +54,6 @@ for ii in 1:3
     println("Layer ", ii, " grads bias size", grads.layers[ii].bias |> size)
 end
 
-@time model = trainsgd(model, x, y, mse, mse_prime, epochs, lr)
-# excuse me julia what is this??
-# everytime i run the same script in the same file
-# the training gets slower and slower
-# possible memory leak?? thanks julia!
 
 displaynetwork(model, x, y, mse_prime)
 
@@ -68,6 +66,6 @@ savefig("result.png")
 
 GC.gc()
 
-adam_init(grads, 1.0f-2, 1.0f-2, 1.0f-2, 1.0f-2)
+model
 
 # end # module juliaml
