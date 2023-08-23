@@ -14,8 +14,8 @@ include("utils.jl")
 input_size = 1
 output_size = 1
 hidden_size = 32
-activation = gelu
-activation_prime = gelu_prime
+activation = relu
+activation_prime = relu_prime
 epochs = 30000
 lr = 0.01f0
 wd = 0.0001f0
@@ -35,7 +35,6 @@ display(@benchmark y2 = model(x))
 
 # @report_opt model(x)
 # @report_opt model.layers[1](x)
-
 
 # pullback, grads = backward(model.layers[1], rand(Float32, input_size, 10) |> collect, ones(Float32, 32, 10) |> collect)
 outputs, grads = backward(model, x, y, mse_prime)
