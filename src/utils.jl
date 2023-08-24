@@ -76,15 +76,17 @@ function none_activation_prime(x::Matrix{Float32})::Matrix{Float32}
     ones(eltype(x), size(x))
 end
 
-function swish(x::Float32)::Float32
-    x / (1.0f0 + exp(-x))
+function swish(x)
+    x / (one(x) + exp(-x))
 end
 
 function swish(x::Matrix{Float32})::Matrix{Float32}
-    @fastmath @. map(swish, x)
+    vmap(swish, x)
 end
 
-function swish_prime(x::Matrix{Float32})::Matrix{Float32}
+function swish_prime(x::)::Matrix{Float32}
+    dumpa = 
+
     @fastmath swish(x) .+ (1.0f0 .- swish(x)) .* exp.(-x) ./ (1.0f0 .+ exp.(-x))
 end
 
@@ -408,8 +410,8 @@ function loadmlp(fname)
             activation_prime = none_activation_prime
         else
             @error "activation function not found"
+            return 0
         end
-
         weights = reshape(weights, nw1, nw2)
         bias = reshape(bias, nb1, nb2)
 

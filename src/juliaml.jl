@@ -17,9 +17,9 @@ include("utils.jl")
 input_size = 1
 output_size = 1
 hidden_size = 32
-activation = gelu
-activation_prime = gelu_prime
-epochs = 30000
+activation = swish
+activation_prime = swish_prime
+epochs = 60000
 lr = 0.01f0
 wd = 0.0001f0
 n = 20
@@ -68,4 +68,3 @@ y2 = model2(x2)
 scatter(x', y', label="data")
 display(plot!(x2', y2', label="model"))
 savefig("result.png")
-
