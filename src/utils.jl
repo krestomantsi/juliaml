@@ -370,7 +370,7 @@ function save(model::MLP, fname)
         dic["layer_"*string(ii)*"_bias"] = bias
         dic["layer_"*string(ii)*"_activation"] = model.layers[ii].activation |> string
         dic["layer_"*string(ii)*"_activation_prime"] = model.layers[ii].activation_prime |> string
-        dic["layer_"*string(ii)*"_weight_size"] = sz
+        dic["layer_"*string(ii)*"_weight_size"] = wsz
         dic["layer_"*string(ii)*"_bias_size"] = bsz
     end
     jdic = json(dic)
@@ -382,10 +382,37 @@ function loadmlp(fname)
     n = dic["n_layers"]
     layers = []
     for ii in 1:n
-        weights = reshape(dic["layer_"*string(ii)*"_weights"], dic["layer_"*string(ii)*"_weight_size"])
-        bias = reshape(dic["layer_"*string(ii)*"_bias"], dic["layer_"*string(ii)*"_bias_size"])
-        activation = dic["layer_"*string(ii)*"_activation"] |> eval
-        activation_prime = dic["layer_"*string(ii)*"_activation_prime"] |> eval
+        weights = dic["layer_"*string(ii)*"_weights"] .|> Float32
+        bias = dic["layer_"*string(ii)*"_bias"] .|> Float32
+        nw1 = dic["layer_"*string(ii)*"_weight_size"][1] |> Int64
+        nw2 = dic["layer_"*string(ii)*"_weight_size"][2] |> Int64
+        nb1 = dic["layer_"*string(ii)*"_bias_size"][1] |> Int64
+        nb2 = dic["layer_"*string(ii)*"_bias_size"][2] |> Int64
+        activation = dic["layer_"*string(ii)*"_activation"]
+        activation_prime = dic["layer_"*string(ii)*"_activation_prime"]
+
+        if activation == "relu"
+            activation = relu
+            activation_prime = relu_prime
+        elseif activation == "gelu"
+            activation = gelu
+            activation_prime = gelu_prime
+        elseif activation == "leaky_relu"
+            activation = leaky_relu
+            activation_prime = leaky_relu_prime
+        elseif activation == "swish"
+            activation = swish
+            activation_prime = swish_prime
+        elseif activation == "none_activation"
+            activation = none_activation
+            activation_prime = none_activation_prime
+        else
+            @error "activation function not found"
+        end
+
+        weights = reshape(weights, nw1, nw2)
+        bias = reshape(bias, nb1, nb2)
+
         push!(layers, Dense(weights, bias, activation, activation_prime))
     end
     MLP(layers)

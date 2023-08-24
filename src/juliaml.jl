@@ -59,11 +59,13 @@ end
 
 displaynetwork(model, x, y, mse_prime)
 
-x2 = LinRange(-1, 1, 200)' |> collect .|> Float32
-y2 = model(x2)
+# testing saving & loading
+save(model, "model.json")
+model2 = loadmlp("model.json")
 
+x2 = LinRange(-1, 1, 200)' |> collect .|> Float32
+y2 = model2(x2)
 scatter(x', y', label="data")
 display(plot!(x2', y2', label="model"))
 savefig("result.png")
 
-save(model, "model.json")
