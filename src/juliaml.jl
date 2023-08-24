@@ -8,6 +8,9 @@ using Random
 using Statistics: mean, std
 using JET
 using Base.Threads: Threads, @spawn
+using DataFrames
+using CSV
+using JSON
 
 include("utils.jl")
 
@@ -31,7 +34,7 @@ y = sin.(4 * Float32(pi) * x)
 y2 = model(x)
 
 # println("Inference benchmark")
-display(@benchmark y2 = model(x))
+# display(@benchmark y2 = model(x))
 
 # @report_opt model(x)
 # @report_opt model.layers[1](x)
@@ -63,8 +66,4 @@ scatter(x', y', label="data")
 display(plot!(x2', y2', label="model"))
 savefig("result.png")
 
-GC.gc()
-
-model
-
-# end # module juliaml
+save(model, "model.json")

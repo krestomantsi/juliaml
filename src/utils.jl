@@ -351,3 +351,42 @@ function train!(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, lr::Float32, w
     end
     return mlp
 end
+
+"""
+    save(model::MLP, fname::string)
+
+    save the model to a json file
+"""
+function save(model::MLP, fname)
+    n = model.layers |> length
+    dic = Dict()
+    dic["n_layers"] = n
+    for ii in 1:n
+        wsz = model.layers[ii].weights |> size
+        bsz = model.layers[ii].bias |> size
+        weights = model.layers[ii].weights |> vec
+        bias = model.layers[ii].bias |> vec
+        dic["layer_"*string(ii)*"_weights"] = weights
+        dic["layer_"*string(ii)*"_bias"] = bias
+        dic["layer_"*string(ii)*"_activation"] = model.layers[ii].activation |> string
+        dic["layer_"*string(ii)*"_activation_prime"] = model.layers[ii].activation_prime |> string
+        dic["layer_"*string(ii)*"_weight_size"] = sz
+        dic["layer_"*string(ii)*"_bias_size"] = bsz
+    end
+    jdic = json(dic)
+    JSON.write(fname, jdic)
+end
+
+function loadmlp(fname)
+    dic = JSON.parsefile("model.json"; dicttype=Dict, inttype=Int64, use_mmap=true)
+    n = dic["n_layers"]
+    layers = []
+    for ii in 1:n
+        weights = reshape(dic["layer_"*string(ii)*"_weights"], dic["layer_"*string(ii)*"_weight_size"])
+        bias = reshape(dic["layer_"*string(ii)*"_bias"], dic["layer_"*string(ii)*"_bias_size"])
+        activation = dic["layer_"*string(ii)*"_activation"] |> eval
+        activation_prime = dic["layer_"*string(ii)*"_activation_prime"] |> eval
+        push!(layers, Dense(weights, bias, activation, activation_prime))
+    end
+    MLP(layers)
+end

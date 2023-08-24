@@ -3,13 +3,13 @@ using Flux
 using Plots
 using Optimisers
 using BenchmarkTools
-using JSON2
+using JSON, DataFrames
 
-activation = relu
+activation = gelu
 epochs = 30000
 lr = 1e-2
 
-x = LinRange(-1, 1, 20)' |> collect .|> Float32
+x = LinRange(-1, 1, 100)' |> collect .|> Float32
 y = x .^ 2
 
 model = Chain(Dense(1, 32, activation),
