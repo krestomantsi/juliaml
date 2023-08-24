@@ -76,15 +76,17 @@ function none_activation_prime(x::Matrix{Float32})::Matrix{Float32}
     ones(eltype(x), size(x))
 end
 
-function swish(x::Float32)::Float32
-    x / (1.0f0 + exp(-x))
+function swish(x)
+    x / (one(x) + exp(-x))
 end
 
 function swish(x::Matrix{Float32})::Matrix{Float32}
-    @fastmath @. map(swish, x)
+    vmap(swish, x)
 end
 
-function swish_prime(x::Matrix{Float32})::Matrix{Float32}
+function swish_prime(x::)::Matrix{Float32}
+    dumpa = 
+
     @fastmath swish(x) .+ (1.0f0 .- swish(x)) .* exp.(-x) ./ (1.0f0 .+ exp.(-x))
 end
 
@@ -350,4 +352,70 @@ function train!(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, lr::Float32, w
         end
     end
     return mlp
+end
+
+"""
+    save(model::MLP, fname::string)
+
+    save the model to a json file
+"""
+function save(model::MLP, fname)
+    n = model.layers |> length
+    dic = Dict()
+    dic["n_layers"] = n
+    for ii in 1:n
+        wsz = model.layers[ii].weights |> size
+        bsz = model.layers[ii].bias |> size
+        weights = model.layers[ii].weights |> vec
+        bias = model.layers[ii].bias |> vec
+        dic["layer_"*string(ii)*"_weights"] = weights
+        dic["layer_"*string(ii)*"_bias"] = bias
+        dic["layer_"*string(ii)*"_activation"] = model.layers[ii].activation |> string
+        dic["layer_"*string(ii)*"_activation_prime"] = model.layers[ii].activation_prime |> string
+        dic["layer_"*string(ii)*"_weight_size"] = wsz
+        dic["layer_"*string(ii)*"_bias_size"] = bsz
+    end
+    jdic = json(dic)
+    JSON.write(fname, jdic)
+end
+
+function loadmlp(fname)
+    dic = JSON.parsefile("model.json"; dicttype=Dict, inttype=Int64, use_mmap=true)
+    n = dic["n_layers"]
+    layers = []
+    for ii in 1:n
+        weights = dic["layer_"*string(ii)*"_weights"] .|> Float32
+        bias = dic["layer_"*string(ii)*"_bias"] .|> Float32
+        nw1 = dic["layer_"*string(ii)*"_weight_size"][1] |> Int64
+        nw2 = dic["layer_"*string(ii)*"_weight_size"][2] |> Int64
+        nb1 = dic["layer_"*string(ii)*"_bias_size"][1] |> Int64
+        nb2 = dic["layer_"*string(ii)*"_bias_size"][2] |> Int64
+        activation = dic["layer_"*string(ii)*"_activation"]
+        activation_prime = dic["layer_"*string(ii)*"_activation_prime"]
+
+        if activation == "relu"
+            activation = relu
+            activation_prime = relu_prime
+        elseif activation == "gelu"
+            activation = gelu
+            activation_prime = gelu_prime
+        elseif activation == "leaky_relu"
+            activation = leaky_relu
+            activation_prime = leaky_relu_prime
+        elseif activation == "swish"
+            activation = swish
+            activation_prime = swish_prime
+        elseif activation == "none_activation"
+            activation = none_activation
+            activation_prime = none_activation_prime
+        else
+            @error "activation function not found"
+            return 0
+        end
+        weights = reshape(weights, nw1, nw2)
+        bias = reshape(bias, nb1, nb2)
+
+        push!(layers, Dense(weights, bias, activation, activation_prime))
+    end
+    MLP(layers)
 end

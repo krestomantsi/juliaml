@@ -8,15 +8,18 @@ using Random
 using Statistics: mean, std
 using JET
 using Base.Threads: Threads, @spawn
+using DataFrames
+using CSV
+using JSON
 
 include("utils.jl")
 
 input_size = 1
 output_size = 1
 hidden_size = 32
-activation = relu
-activation_prime = relu_prime
-epochs = 30000
+activation = swish
+activation_prime = swish_prime
+epochs = 60000
 lr = 0.01f0
 wd = 0.0001f0
 n = 20
@@ -31,7 +34,7 @@ y = sin.(4 * Float32(pi) * x)
 y2 = model(x)
 
 # println("Inference benchmark")
-display(@benchmark y2 = model(x))
+# display(@benchmark y2 = model(x))
 
 # @report_opt model(x)
 # @report_opt model.layers[1](x)
@@ -55,15 +58,12 @@ end
 
 displaynetwork(model, x, y, mse_prime)
 
-x2 = LinRange(-1, 1, 200)' |> collect .|> Float32
-y2 = model(x2)
+# testing saving & loading
+save(model, "model.json")
+model2 = loadmlp("model.json")
 
+x2 = LinRange(-1, 1, 200)' |> collect .|> Float32
+y2 = model2(x2)
 scatter(x', y', label="data")
 display(plot!(x2', y2', label="model"))
 savefig("result.png")
-
-GC.gc()
-
-model
-
-# end # module juliaml
