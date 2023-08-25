@@ -5,9 +5,10 @@ using Optimisers
 using Plots
 using BenchmarkTools
 
-activation = Flux.relu
+activation = Flux.swish
 epochs = 30000
-lr = 0.05f0
+lr = 0.01f0
+wd = 0.0001f0
 n = 100
 
 x = LinRange(-1, 1, 100)' |> collect .|> Float32

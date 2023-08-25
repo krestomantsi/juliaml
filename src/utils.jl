@@ -10,22 +10,23 @@
 end
 
 
-function mygem(A::Matrix{Float32}, B::Matrix{Float32})::Matrix{Float32}
+@inline function mygem(A::Matrix{Float32}, B::Matrix{Float32})::Matrix{Float32}
     C = zeros(eltype(A), size(A, 1), size(B, 2))
     mygemmavx!(C, A, B)
     return C
 end
 
-function relu(x)
+@inline function relu(x)
     max(x, zero(eltype(x)))
 end
 
 function relu(x::Matrix{Float32})::Matrix{Float32}
-    max.(x, 0.0f0)
+    vmap(relu, x)
 end
+@inline relu_prime(x) = x .> 0.0f0
 
 function relu_prime(x::Matrix{Float32})::Matrix{Float32}
-    x .> 0.0f0
+    vmap(relu_prime, x)
 end
 
 leaky_relu(x) = max(x, 0.01f0 * x)
@@ -76,18 +77,21 @@ function none_activation_prime(x::Matrix{Float32})::Matrix{Float32}
     ones(eltype(x), size(x))
 end
 
-function swish(x)
-    x / (one(x) + exp(-x))
+@inline function swish(x)
+    x / (1.0f0 + exp(-x))
 end
 
 function swish(x::Matrix{Float32})::Matrix{Float32}
     vmap(swish, x)
 end
 
-function swish_prime(x::)::Matrix{Float32}
-    dumpa = 
+@inline function swish_prime(x)
+    dumpa = 1.0f0 + exp(-x)
+    (x * dumpa + dumpa - x) / dumpa^2
+end
 
-    @fastmath swish(x) .+ (1.0f0 .- swish(x)) .* exp.(-x) ./ (1.0f0 .+ exp.(-x))
+function swish_prime(x::AbstractMatrix)::AbstractMatrix
+    vmap(swish_prime, x)
 end
 
 # each layer will have a struct definition

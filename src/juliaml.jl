@@ -19,7 +19,7 @@ output_size = 1
 hidden_size = 32
 activation = swish
 activation_prime = swish_prime
-epochs = 60000
+epochs = 30000
 lr = 0.01f0
 wd = 0.0001f0
 n = 20
@@ -34,7 +34,7 @@ y = sin.(4 * Float32(pi) * x)
 y2 = model(x)
 
 # println("Inference benchmark")
-# display(@benchmark y2 = model(x))
+display(@benchmark y2 = model(x))
 
 # @report_opt model(x)
 # @report_opt model.layers[1](x)
