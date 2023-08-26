@@ -17,8 +17,8 @@ include("utils.jl")
 input_size = 1
 output_size = 1
 hidden_size = 32
-activation = leaky_relu
-activation_prime = leaky_relu_prime
+activation = swish
+activation_prime = swish_prime
 epochs = 90000
 lr = 0.01f0
 wd = 0.0000f0

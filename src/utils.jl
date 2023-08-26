@@ -123,11 +123,11 @@ struct Dense
     activation::Union{typeof(relu),typeof(gelu),typeof(swish),typeof(leaky_relu),typeof(none_activation)}
     activation_prime::Union{typeof(relu_prime),typeof(gelu_prime),typeof(swish_prime),typeof(leaky_relu_prime),typeof(none_activation_prime)}
 end
+
 # forward call of Dense
 function (d::Dense)(x::Matrix{Float32})::Matrix{Float32}
     dense(d.activation, d.weights, d.bias, x)
 end
-
 
 struct MLP
     layers::Vector{Dense}
@@ -215,13 +215,13 @@ struct SGDw
     weight_decay::Float32
 end
 
-struct Adam
-    lr::AbstractFloat
-    lambda::AbstractFloat
-    beta1::AbstractFloat
-    beta2::AbstractFloat
-    # to be continued
-end
+# struct Adam
+#     lr::AbstractFloat
+#     lambda::AbstractFloat
+#     beta1::AbstractFloat
+#     beta2::AbstractFloat
+#     # to be continued
+# end
 
 function sgd(mlp::MLP, grads::MLPGradient, lr::Float32)
     layers = []
