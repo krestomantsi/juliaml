@@ -16,23 +16,20 @@ include("utils.jl")
 
 input_size = 1
 output_size = 1
-hidden_size = 16
-activation = relu
-activation_prime = relu_prime
-epochs = 100000
+hidden_size = 32
+activation = swish
+activation_prime = swish_prime
+epochs = 30000
 lr = 0.01f0
 wd = 0.00001f0
-n = 100
+n = 10000
 
 model = MLP(input_size, hidden_size, output_size, activation, activation_prime)
 
-x = randn(Float32, input_size, 1000)
-x = x' |> collect .|> Float32
+x = LinRange(-1, 1, n)' |> collect .|> Float32
 
-# x = LinRange(-1, 1, n)' |> collect .|> Float32
-
-y = sin.(4 * Float32(pi) * x)
-#y = cos.(3 * Float32(pi) * x) .^ 11
+#y = sin.(4 * Float32(pi) * x)
+y = cos.(3 * Float32(pi) * x) .^ 11
 
 y2 = model(x)
 
