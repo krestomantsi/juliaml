@@ -22,7 +22,7 @@ activation_prime = swish_prime
 epochs = 30000
 lr = 0.01f0
 wd = 0.00001f0
-n = 10000
+n = 100
 
 model = MLP(input_size, hidden_size, output_size, activation, activation_prime)
 
@@ -68,6 +68,14 @@ scatter(x', y', label="data")
 display(plot!(x2', y2', label="model"))
 savefig("result.png")
 
+# plotting learnable basis of the neural network
 dumpa = outputs[3]'
 plot(x' |> vec, dumpa, label=nothing)
 savefig("output2_basis.png")
+
+# testing parallel forward
+function parallel_backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime)
+
+
+
+end
