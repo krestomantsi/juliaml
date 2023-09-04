@@ -9,9 +9,9 @@ activation = Flux.swish
 epochs = 30000
 lr = 0.01f0
 wd = 0.0001f0
-n = 100
+n = 10000
 
-x = LinRange(-1, 1, 100)' |> collect .|> Float32
+x = LinRange(-1, 1, n)' |> collect .|> Float32
 y = sin.(4 * Float32(pi) * x)
 
 model = Chain(Flux.Dense(1, 32, activation),
