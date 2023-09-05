@@ -383,6 +383,11 @@ function save(model::MLP, fname)
     JSON.write(fname, jdic)
 end
 
+"""
+    loadmlp(fname::string)
+
+    load a juliaml model from a json file
+"""
 function loadmlp(fname)
     dic = JSON.parsefile("model.json"; dicttype=Dict, inttype=Int64, use_mmap=true)
     n = dic["n_layers"]
@@ -422,4 +427,57 @@ function loadmlp(fname)
         push!(layers, Dense(weights, bias, activation, activation_prime))
     end
     MLP(layers)
+end
+
+# if flux is imported then define those flux -> juliaml functions
+if :Flux in names(Main, imported=true)
+    println("Flux is imported")
+    """
+        flux2json(model::Chain)
+
+        convert a flux model to a juliaml model
+    """
+    function flux2jmlp(model::Chain)
+        layers = []
+        for chain in model
+            weights = chain.weight
+            bias = reshape(chain.bias, :, 1)
+            activation = chain.σ |> string
+            println("weights: ", weights |> size)
+            println("bias: ", bias |> size)
+            println("activation: ", activation)
+            if activation == "relu"
+                activation = relu
+                activation_prime = relu_prime
+            elseif activation == "gelu"
+                activation = gelu
+                activation_prime = gelu_prime
+            elseif activation == "leaky_relu"
+                activation = leaky_relu
+                activation_prime = leaky_relu_prime
+            elseif activation == "swish"
+                activation = swish
+                activation_prime = swish_prime
+            elseif activation == "none_activation"
+                activation = none_activation
+                activation_prime = none_activation_prime
+            elseif activation == "identity"
+                activation = none_activation
+                activation_prime = none_activation_prime
+            else
+                @error "activation function not found"
+                return 0
+            end
+            layer = Dense(weights, bias, activation, activation_prime)
+            push!(layers, layer)
+        end
+        return MLP(layers)
+    end
+
+    function save(model::Chain, fname)
+        mlp = flux2jmlp(model)
+        save(mlp, fname)
+        return 0
+    end
+
 end
