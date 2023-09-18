@@ -28,8 +28,8 @@ model = MLP(input_size, hidden_size, output_size, activation, activation_prime)
 
 x = LinRange(-1, 1, n)' |> collect .|> Float32
 
-#y = sin.(4 * Float32(pi) * x)
-y = cos.(3 * Float32(pi) * x) .^ 11
+y = sin.(4 * Float32(pi) * x)
+#y = cos.(3 * Float32(pi) * x) .^ 11
 
 y2 = model(x)
 
@@ -75,7 +75,6 @@ savefig("output2_basis.png")
 
 # testing parallel forward
 function parallel_backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime)
-
 
 
 end

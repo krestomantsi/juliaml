@@ -9,7 +9,6 @@
     end
 end
 
-
 @inline function mygem(A::Matrix{Float32}, B::Matrix{Float32})::Matrix{Float32}
     C = zeros(eltype(A), size(A, 1), size(B, 2))
     mygemmavx!(C, A, B)
@@ -143,7 +142,6 @@ function (mlp::MLP)(x::Matrix{Float32})::Matrix{Float32}
     output
 end
 
-#
 mutable struct DenseGradient
     weights::Matrix{Float32}
     bias::Matrix{Float32}
