@@ -278,13 +278,13 @@ function MLP_det(input_size::Int, hidden_size::Int, hidden_size2, output_size::I
     MLP(layers)
 end
 
-function tmapreduce(f, op, itr; tasks_per_thread::Int=2, kwargs...)
-    chunk_size = max(1, length(itr) ÷ (tasks_per_thread * nthreads()))
-    tasks = map(Iterators.partition(itr, chunk_size)) do chunk
-        @spawn mapreduce(f, op, chunk; kwargs...)
-    end
-    mapreduce(fetch, op, tasks; kwargs...)
-end
+# function tmapreduce(f, op, itr; tasks_per_thread::Int=2, kwargs...)
+#     chunk_size = max(1, length(itr) ÷ (tasks_per_thread * nthreads()))
+#     tasks = map(Iterators.partition(itr, chunk_size)) do chunk
+#         @spawn mapreduce(f, op, chunk; kwargs...)
+#     end
+#     mapreduce(fetch, op, tasks; kwargs...)
+# end
 
 
 mutable struct AdamState
@@ -427,55 +427,4 @@ function loadmlp(fname)
     MLP(layers)
 end
 
-# if flux is imported then define those flux -> juliaml functions
-if :Flux in names(Main, imported=true)
-    println("Flux is imported")
-    """
-        flux2json(model::Chain)
 
-        convert a flux model to a juliaml model
-    """
-    function flux2jmlp(model::Chain)
-        layers = []
-        for chain in model
-            weights = chain.weight
-            bias = reshape(chain.bias, :, 1)
-            activation = chain.σ |> string
-            println("weights: ", weights |> size)
-            println("bias: ", bias |> size)
-            println("activation: ", activation)
-            if activation == "relu"
-                activation = relu
-                activation_prime = relu_prime
-            elseif activation == "gelu"
-                activation = gelu
-                activation_prime = gelu_prime
-            elseif activation == "leaky_relu"
-                activation = leaky_relu
-                activation_prime = leaky_relu_prime
-            elseif activation == "swish"
-                activation = swish
-                activation_prime = swish_prime
-            elseif activation == "none_activation"
-                activation = none_activation
-                activation_prime = none_activation_prime
-            elseif activation == "identity"
-                activation = none_activation
-                activation_prime = none_activation_prime
-            else
-                @error "activation function not found"
-                return 0
-            end
-            layer = Dense(weights, bias, activation, activation_prime)
-            push!(layers, layer)
-        end
-        return MLP(layers)
-    end
-
-    function save(model::Chain, fname)
-        mlp = flux2jmlp(model)
-        save(mlp, fname)
-        return 0
-    end
-
-end

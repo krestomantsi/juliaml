@@ -1,4 +1,4 @@
-# module juliaml
+module juliaml
 
 using LinearAlgebra
 using LoopVectorization
@@ -19,7 +19,7 @@ output_size = 1
 hidden_size = 32
 activation = swish
 activation_prime = swish_prime
-epochs = 30000
+epochs = 30_000
 lr = 0.01f0
 wd = 0.00001f0
 n = 100
@@ -74,7 +74,6 @@ plot(x' |> vec, dumpa, label=nothing)
 savefig("output2_basis.png")
 
 # testing parallel forward
-function parallel_backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime)
-
-
+# function parallel_backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime)
+# end
 end
