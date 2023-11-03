@@ -116,7 +116,7 @@ end
     return C
 end
 
-struct Dense
+struct TurboDense
     weights::Matrix{Float32}
     bias::Matrix{Float32}
     activation::Union{typeof(relu),typeof(gelu),typeof(swish),typeof(leaky_relu),typeof(none_activation)}
@@ -124,12 +124,37 @@ struct Dense
 end
 
 # forward call of Dense
-function (d::Dense)(x::Matrix{Float32})::Matrix{Float32}
+function (d::TurboDense)(x::Matrix{Float32})::Matrix{Float32}
     dense(d.activation, d.weights, d.bias, x)
 end
 
+struct TurboLayerNorm
+    epsilon::Float32
+end
+
+struct TurboNorm
+    epsilon::Float32
+    mean::Matrix{Float32}
+    std::Matrix{Float32}
+end
+
+# forward call of LayerNorm
+@inline function (d::TurboLayerNorm)(x::Matrix{Float32})::Matrix{Float32}
+    eps = d.epsilon
+    xmean = mean(x, dims=1)
+    xstd = std(x, dims=1, mean=xmean, corrected=false)
+    return @. (x - xmean) / (xstd + eps)
+end
+
+function (d::TurboNorm)(x::Matrix{Float32})::Matrix{Float32}
+    eps = d.epsilon
+    xmean = d.mean
+    xstd = d.std
+    return @. (x - xmean) / (xstd + eps)
+end
+
 struct MLP
-    layers::Vector{Dense}
+    layers::Vector{Union{TurboNorm,TurboDense,TurboLayerNorm}}
 end
 
 function (mlp::MLP)(x::Matrix{Float32})::Matrix{Float32}
@@ -142,14 +167,13 @@ function (mlp::MLP)(x::Matrix{Float32})::Matrix{Float32}
     output
 end
 
-mutable struct DenseGradient
+mutable struct TurboDenseGradient
     weights::Matrix{Float32}
     bias::Matrix{Float32}
 end
 
 struct MLPGradient
-    # layers::Tuple{Vararg{DenseGradient}}
-    layers::Vector{DenseGradient}
+    layers::Vector{TurboDenseGradient}
 end
 
 
@@ -170,23 +194,23 @@ function MLP(input_size::Int, hidden_size::Int, output_size::Int, activation::Fu
     weights3 = (randn(Float32, output_size, hidden_size) ./ (sqrt(hidden_size) |> Float32))
     bias3 = zeros(Float32, output_size, 1)
     # layers = (
-    #     Dense(weights1, bias1, activation, activation_prime),
+    #     TurboDense(weights1, bias1, activation, activation_prime),
     #     Dense(weights2, bias2, activation, activation_prime),
     #     Dense(weights3, bias3, none_activation, none_activation_prime))
     layers = [
-        Dense(weights1, bias1, activation, activation_prime),
-        Dense(weights2, bias2, activation, activation_prime),
-        Dense(weights3, bias3, none_activation, none_activation_prime)]
+        TurboDense(weights1, bias1, activation, activation_prime),
+        TurboDense(weights2, bias2, activation, activation_prime),
+        TurboDense(weights3, bias3, none_activation, none_activation_prime)]
     MLP(layers)
 end
 
-@inline function backward(d::Dense, x::Matrix{Float32}, z::Matrix{Float32}, pullback::Matrix{Float32})
+@inline function backward(d::TurboDense, x::Matrix{Float32}, z::Matrix{Float32}, pullback::Matrix{Float32})
     #m = size(x, 2) |> Float32
     dz = pullback .* d.activation_prime(z)
     bias = sum(dz, dims=2)
     weights = mygem(dz, x' |> collect)
     pullback = mygem(d.weights' |> collect, dz)
-    grads = DenseGradient(weights, bias)
+    grads = TurboDenseGradient(weights, bias)
     return pullback, grads
 end
 
@@ -226,8 +250,8 @@ function sgd(mlp::MLP, grads::MLPGradient, lr::Float32)
     for ii in 1:length(mlp.layers)
         weights = mlp.layers[ii].weights .- lr * grads.layers[ii].weights
         bias = mlp.layers[ii].bias .- lr * grads.layers[ii].bias
-        Dense(weights, bias, mlp.layers[ii].activation, mlp.layers[ii].activation_prime)
-        push!(layers, Dense(weights, bias, mlp.layers[ii].activation, mlp.layers[ii].activation_prime))
+        TurboDense(weights, bias, mlp.layers[ii].activation, mlp.layers[ii].activation_prime)
+        push!(layers, TurboDense(weights, bias, mlp.layers[ii].activation, mlp.layers[ii].activation_prime))
     end
     MLP(layers)
 end
@@ -272,9 +296,9 @@ function MLP_det(input_size::Int, hidden_size::Int, hidden_size2, output_size::I
     weights3 = ones(Float32, output_size, hidden_size2)
     bias3 = zeros(Float32, output_size, 1)
     layers = [
-        Dense(weights1, bias1, activation, activation_prime),
-        Dense(weights2, bias2, activation, activation_prime),
-        Dense(weights3, bias3, none_activation, none_activation_prime)]
+        TurboDense(weights1, bias1, activation, activation_prime),
+        TurboDense(weights2, bias2, activation, activation_prime),
+        TurboDense(weights3, bias3, none_activation, none_activation_prime)]
     MLP(layers)
 end
 
@@ -303,7 +327,7 @@ end
     @inbounds for ii in 1:length(mlp.layers)
         weights = f.(mlp.layers[ii].weights)
         bias = f.(mlp.layers[ii].bias)
-        push!(layers, DenseGradient(weights, bias))
+        push!(layers, TurboDenseGradient(weights, bias))
     end
     MLPGradient(layers)
 end
@@ -339,12 +363,13 @@ end
         adam.m.layers[ii].bias = mb |> copy
         adam.v.layers[ii].weights = vw |> copy
         adam.v.layers[ii].bias = vb |> copy
-        push!(layers, Dense(weights, bias, mlp.layers[ii].activation, mlp.layers[ii].activation_prime))
+        push!(layers, TurboDense(weights, bias, mlp.layers[ii].activation, mlp.layers[ii].activation_prime))
     end
     MLP(layers)
 end
 
 function train!(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, lr::Float32, wd::Float32, epochs::Int, loss::Function, loss_prime::Function, parallel::Bool)
+    _outputs, grads = backward(mlp, x, y, loss_prime)
     opt = adam_init(grads, lr, wd, 0.9f0, 0.999f0)
     @inbounds for ii in 1:epochs
         _outputs, grads = backward(mlp, x, y, loss_prime)
@@ -354,6 +379,38 @@ function train!(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, lr::Float32, w
         end
     end
     return mlp
+end
+
+
+function writedict!(m::TurboDense, dic, seq::Integer)
+    wsz = m.weights |> size
+    bsz = m.bias |> size
+    weights = m.weights |> vec
+    bias = m.bias |> vec
+    dic["layer_"*string(seq)*"_type"] = "dense"
+    dic["layer_"*string(seq)*"_weights"] = weights
+    dic["layer_"*string(seq)*"_bias"] = bias
+    dic["layer_"*string(seq)*"_activation"] = m.activation |> string
+    dic["layer_"*string(seq)*"_activation_prime"] = m.activation_prime |> string
+    dic["layer_"*string(seq)*"_weight_size"] = wsz
+    dic["layer_"*string(seq)*"_bias_size"] = bsz
+end
+
+function writedict!(m::TurboNorm, dic, seq::Integer)
+    xmean = m.mean |> vec
+    xstd = m.std |> vec
+    sh = size(xmean, 1)
+    eps = m.epsilon
+    dic["layer_"*string(seq)*"_type"] = "norm"
+    dic["layer_"*string(seq)*"_eps"] = eps
+    dic["layer_"*string(seq)*"_mean"] = xmean
+    dic["layer_"*string(seq)*"_std"] = xstd
+end
+
+function writedict!(m::TurboLayerNorm, dic, seq::Integer)
+    eps = m.epsilon
+    dic["layer_"*string(seq)*"_type"] = "layernorm"
+    dic["layer_"*string(seq)*"_eps"] = eps
 end
 
 """
@@ -366,16 +423,7 @@ function save(model::MLP, fname)
     dic = Dict()
     dic["n_layers"] = n
     for ii in 1:n
-        wsz = model.layers[ii].weights |> size
-        bsz = model.layers[ii].bias |> size
-        weights = model.layers[ii].weights |> vec
-        bias = model.layers[ii].bias |> vec
-        dic["layer_"*string(ii)*"_weights"] = weights
-        dic["layer_"*string(ii)*"_bias"] = bias
-        dic["layer_"*string(ii)*"_activation"] = model.layers[ii].activation |> string
-        dic["layer_"*string(ii)*"_activation_prime"] = model.layers[ii].activation_prime |> string
-        dic["layer_"*string(ii)*"_weight_size"] = wsz
-        dic["layer_"*string(ii)*"_bias_size"] = bsz
+        writedict!(model.layers[ii], dic, ii)
     end
     jdic = json(dic)
     JSON.write(fname, jdic)
@@ -384,47 +432,132 @@ end
 """
     loadmlp(fname::string)
 
-    load a juliaml model from a json file
+    load a Turbo model from a json file
 """
-function loadmlp(fname)
-    dic = JSON.parsefile("model.json"; dicttype=Dict, inttype=Int64, use_mmap=true)
+function loadmlp(fname)::MLP
+    dic = JSON.parsefile(fname; dicttype=Dict, inttype=Int64, use_mmap=true)
     n = dic["n_layers"]
     layers = []
     for ii in 1:n
-        weights = dic["layer_"*string(ii)*"_weights"] .|> Float32
-        bias = dic["layer_"*string(ii)*"_bias"] .|> Float32
-        nw1 = dic["layer_"*string(ii)*"_weight_size"][1] |> Int64
-        nw2 = dic["layer_"*string(ii)*"_weight_size"][2] |> Int64
-        nb1 = dic["layer_"*string(ii)*"_bias_size"][1] |> Int64
-        nb2 = dic["layer_"*string(ii)*"_bias_size"][2] |> Int64
-        activation = dic["layer_"*string(ii)*"_activation"]
-        activation_prime = dic["layer_"*string(ii)*"_activation_prime"]
+        type = dic["layer_"*string(ii)*"_type"]
+        if type == "dense"
+            weights = dic["layer_"*string(ii)*"_weights"] .|> Float32
+            bias = dic["layer_"*string(ii)*"_bias"] .|> Float32
+            nw1 = dic["layer_"*string(ii)*"_weight_size"][1] |> Int64
+            nw2 = dic["layer_"*string(ii)*"_weight_size"][2] |> Int64
+            nb1 = dic["layer_"*string(ii)*"_bias_size"][1] |> Int64
+            nb2 = dic["layer_"*string(ii)*"_bias_size"][2] |> Int64
+            activation = dic["layer_"*string(ii)*"_activation"]
+            activation_prime = dic["layer_"*string(ii)*"_activation_prime"]
 
-        if activation == "relu"
-            activation = relu
-            activation_prime = relu_prime
-        elseif activation == "gelu"
-            activation = gelu
-            activation_prime = gelu_prime
-        elseif activation == "leaky_relu"
-            activation = leaky_relu
-            activation_prime = leaky_relu_prime
-        elseif activation == "swish"
-            activation = swish
-            activation_prime = swish_prime
-        elseif activation == "none_activation"
-            activation = none_activation
-            activation_prime = none_activation_prime
+            if activation == "relu"
+                activation = relu
+                activation_prime = relu_prime
+            elseif activation == "gelu"
+                activation = gelu
+                activation_prime = gelu_prime
+            elseif activation == "leaky_relu"
+                activation = leaky_relu
+                activation_prime = leaky_relu_prime
+            elseif activation == "swish"
+                activation = swish
+                activation_prime = swish_prime
+            elseif activation == "none_activation"
+                activation = none_activation
+                activation_prime = none_activation_prime
+            else
+                @error "activation function not found"
+                return 0
+            end
+            weights = reshape(weights, nw1, nw2)
+            bias = reshape(bias, nb1, nb2)
+            push!(layers, TurboDense(weights, bias, activation, activation_prime))
+        elseif type == "layernorm"
+            eps = dic["layer_"*string(ii)*"_eps"]
+            push!(layers, TurboLayerNorm(eps))
+        elseif type == "norm"
+            xmean = reshape(dic["layer_"*string(ii)*"_mean"] .|> Float32, (:, 1))
+            xstd = reshape(dic["layer_"*string(ii)*"_std"] .|> Float32, (:, 1))
+            eps = dic["layer_"*string(ii)*"_eps"]
+            push!(layers, TurboNorm(eps, xmean, xstd))
         else
-            @error "activation function not found"
-            return 0
+            @error "Layer Type not found"
         end
-        weights = reshape(weights, nw1, nw2)
-        bias = reshape(bias, nb1, nb2)
-
-        push!(layers, Dense(weights, bias, activation, activation_prime))
     end
     MLP(layers)
 end
 
+function convert2turbo(m::Dense)::TurboDense
+    weights = m.weight
+    swz = weights |> size
+    if m.bias == false
+        bias = zeros(swz[1], 1)
+    else
+        bias = reshape(m.bias, (:, 1))
+    end
+    activation = m.σ |> string
+    println("weights: ", weights |> size)
+    println("bias: ", bias |> size)
+    println("activation: ", activation)
+    if activation == "relu"
+        activation = relu
+        activation_prime = relu_prime
+    elseif activation == "gelu"
+        activation = gelu
+        activation_prime = gelu_prime
+    elseif activation == "leakyrelu"
+        activation = leaky_relu
+        activation_prime = leaky_relu_prime
+    elseif activation == "swish"
+        activation = swish
+        activation_prime = swish_prime
+    elseif activation == "none_activation"
+        activation = none_activation
+        activation_prime = none_activation_prime
+    elseif activation == "identity"
+        activation = none_activation
+        activation_prime = none_activation_prime
+    else
+        @error "activation function not found"
+        return 0
+    end
+    return TurboDense(weights, bias, activation, activation_prime)
+end
 
+function convert2turbo(m::LayerNorm)::TurboLayerNorm
+    eps = m.ϵ
+    TurboLayerNorm(eps)
+end
+
+"""
+    convert2turbo(model::Chain)
+
+    convert a flux model to a juliaml model
+"""
+function convert2turbo(model::Chain)::MLP
+    layers = []
+    for m in model
+        layer = m |> convert2turbo
+        push!(layers, layer)
+    end
+    return MLP(layers)
+end
+
+struct ConsModel
+    mlpenc::MLP
+    mlp::MLP
+end
+
+function (m::ConsModel)(x, xtypes)
+    x1 = m.mlpenc(xtypes)
+    x2 = vcat(x, x1)
+    return m.mlp(x2)
+end
+
+function loadconsmodel(fname)
+    # add some options here
+    mlp = loadmlp(fname * "/mlp.json")
+    mlpenc = loadmlp(fname * "/mlpenc.json")
+    uniq_ship_types = JSON.parsefile(fname * "/vessel_types_onehot.json"; dicttype=Dict, inttype=Int64, use_mmap=true) .|> String
+    ConsModel(mlpenc, mlp), uniq_ship_types
+end
