@@ -16,7 +16,7 @@ using Flux
 
 include("utils.jl")
 
-export MLP, train!
+export MLP, train! , displaynetwork, save, loadmlp,swish,swish_prime ,relu, relu ,mse,mse_prime
 
 
 @compile_workload begin
