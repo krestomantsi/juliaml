@@ -3,7 +3,6 @@ module juliaml
 using LinearAlgebra
 using LoopVectorization
 using Plots
-using BenchmarkTools
 using Random
 using Statistics: mean, std
 using JET
