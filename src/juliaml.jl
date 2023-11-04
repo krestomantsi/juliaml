@@ -16,8 +16,7 @@ using Flux
 
 include("utils.jl")
 
-export MLP, train! , displaynetwork, save, loadmlp,swish,swish_prime ,relu, relu ,mse,mse_prime
-
+export MLP, train!, displaynetwork, save, loadmlp, swish, swish_prime, relu, relu, mse, mse_prime, TurboNorm, TurboDense, TurboLayerNorm
 
 @compile_workload begin
     input_size = 1
