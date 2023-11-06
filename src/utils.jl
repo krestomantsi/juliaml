@@ -339,33 +339,33 @@ function adam_init(grads::MLPGradient, lr, lambda, beta1, beta2)::AdamState
     AdamState(lr, lambda, beta1, beta2, 1.0f-8, m, v, 0)
 end
 
-@inline function adamw(mlp::MLP, grads::MLPGradient, adam::AdamState)::MLP
+@inline function adamw!(mlp::MLP, grads::MLPGradient, adam::AdamState)#::MLP
     adam.t = adam.t + 1
     b::Float32 = adam.beta1
     b2::Float32 = adam.beta2
     b11 = 1.0f0 - b
     b22 = 1.0f0 - b2
-    layers = []
+    layers::Vector{TurboDense} = []
     @inbounds for ii in 1:length(mlp.layers)
-        mw = b .* adam.m.layers[ii].weights .+ b11 .* grads.layers[ii].weights
-        mb = b .* adam.m.layers[ii].bias .+ b11 .* grads.layers[ii].bias
-        vw = b2 .* adam.v.layers[ii].weights .+ b22 .* grads.layers[ii].weights .^ 2
-        vb = b2 .* adam.v.layers[ii].bias .+ b22 .* grads.layers[ii].bias .^ 2
-        mhatw = mw ./ (1.0f0 - b^adam.t)
-        mhatb = mb ./ (1.0f0 - b^adam.t)
-        vhatw = vw ./ (1.0f0 - b2^adam.t)
-        vhatb = vb ./ (1.0f0 - b2^adam.t)
-        vhatw = sqrt.(vhatw)
-        vhatb = sqrt.(vhatb)
-        weights = mlp.layers[ii].weights .- adam.lr .* mhatw ./ (vhatw .+ adam.epsilon) .- adam.lambda .* mlp.layers[ii].weights
-        bias = mlp.layers[ii].bias .- adam.lr .* mhatb ./ (vhatb .+ adam.epsilon) .- adam.lambda .* mlp.layers[ii].bias
-        adam.m.layers[ii].weights = mw |> copy
-        adam.m.layers[ii].bias = mb |> copy
-        adam.v.layers[ii].weights = vw |> copy
-        adam.v.layers[ii].bias = vb |> copy
-        push!(layers, TurboDense(weights, bias, mlp.layers[ii].activation, mlp.layers[ii].activation_prime))
+        mw = @turbo @. b * adam.m.layers[ii].weights + b11 * grads.layers[ii].weights
+        mb = @turbo @. b * adam.m.layers[ii].bias + b11 * grads.layers[ii].bias
+        vw = @turbo @. b2 * adam.v.layers[ii].weights + b22 * grads.layers[ii].weights ^ 2
+        vb = @turbo @. b2 * adam.v.layers[ii].bias + b22 * grads.layers[ii].bias ^ 2
+        mhatw = @turbo @. mw / (1.0f0 - b^adam.t)
+        mhatb = @turbo @. mb / (1.0f0 - b^adam.t)
+        vhatw = @turbo @. sqrt(vw / (1.0f0 - b2^adam.t))
+        vhatb = @turbo @. sqrt(vb / (1.0f0 - b2^adam.t))
+        weights = @turbo @. mlp.layers[ii].weights - adam.lr * mhatw / (vhatw + adam.epsilon) - adam.lambda * mlp.layers[ii].weights
+        bias    = @turbo @. mlp.layers[ii].bias - adam.lr * mhatb / (vhatb + adam.epsilon) - adam.lambda * mlp.layers[ii].bias
+        @turbo adam.m.layers[ii].weights = mw # |> copy
+        @turbo adam.m.layers[ii].bias = mb # |> copy
+        @turbo adam.v.layers[ii].weights = vw # |> copy
+        @turbo adam.v.layers[ii].bias = vb # |> copy
+        #push!(layers, TurboDense(weights, bias, mlp.layers[ii].activation, mlp.layers[ii].activation_prime))
+        @turbo mlp.layers[ii].bias .= bias
+        @turbo mlp.layers[ii].weights .= weights
     end
-    MLP(layers)
+    #MLP(layers)
 end
 
 function train!(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, lr::Float32, wd::Float32, epochs::Int, loss::Function, loss_prime::Function, parallel::Bool)
@@ -373,7 +373,8 @@ function train!(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, lr::Float32, w
     opt = adam_init(grads, lr, wd, 0.9f0, 0.999f0)
     @inbounds for ii in 1:epochs
         _outputs, grads = backward(mlp, x, y, loss_prime)
-        mlp = adamw(mlp, grads, opt)
+        #mlp = adamw!(mlp, grads, opt)
+        adamw!(mlp,grads,opt)
         if ii % 1500 == 0
             println("epoch ", ii, " || loss: ", loss(mlp(x), y))
         end
