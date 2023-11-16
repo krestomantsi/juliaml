@@ -16,7 +16,7 @@ using Flux
 include("utils.jl")
 
 export MLP, train!, displaynetwork, save, loadmlp, swish, swish_prime, relu, relu, mse, mse_prime, TurboNorm, TurboDense, TurboLayerNorm
-export gelu,gelu_prime, none_activation, none_activation_prime
+export gelu, gelu_prime, none_activation, none_activation_prime
 
 @compile_workload begin
     input_size = 1
@@ -49,38 +49,23 @@ export gelu,gelu_prime, none_activation, none_activation_prime
 
     # display(@benchmark outputs, grads = backward(model, x, y, mse_prime))
 
-    @time model = train!(model, x, y, lr, wd, epochs, mse, mse_prime, false)
+    model = train!(model, x, y, lr, wd, epochs, mse, mse_prime, false)
 
-    for ii in 1:3
-        println("Layer ", ii, "------------------------------------")
-        local outputs, grads = backward(model, x, y, mse_prime)
-        println("Layer ", ii, " output size", outputs[ii+1] |> size)
-        println("Layer ", ii, " model weights size", model.layers[ii].weights |> size)
-        println("Layer ", ii, " model bias size", model.layers[ii].bias |> size)
-        println("Layer ", ii, " grads weights size", grads.layers[ii].weights |> size)
-        println("Layer ", ii, " grads bias size", grads.layers[ii].bias |> size)
-    end
+    # for ii in 1:3
+    #     println("Layer ", ii, "------------------------------------")
+    #     local outputs, grads = backward(model, x, y, mse_prime)
+    #     println("Layer ", ii, " output size", outputs[ii+1] |> size)
+    #     println("Layer ", ii, " model weights size", model.layers[ii].weights |> size)
+    #     println("Layer ", ii, " model bias size", model.layers[ii].bias |> size)
+    #     println("Layer ", ii, " grads weights size", grads.layers[ii].weights |> size)
+    #     println("Layer ", ii, " grads bias size", grads.layers[ii].bias |> size)
+    # end
 
-    displaynetwork(model, x, y, mse_prime)
+    # displaynetwork(model, x, y, mse_prime)
 
     # testing saving & loading
-    save(model, "model.json")
-    model2 = loadmlp("model.json")
-
-    x2 = LinRange(-1.2, 1.2, 200)' |> collect .|> Float32
-    y2 = model2(x2)
-    scatter(x', y', label="data")
-    display(plot!(x2', y2', label="model"))
-    savefig("result.png")
-
-    # plotting learnable basis of the neural network
-    dumpa = outputs[3]'
-    plot(x' |> vec, dumpa, label=nothing)
-    savefig("output2_basis.png")
-
-    # testing parallel forward
-    # function parallel_backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime)
-    # end
+    save(model, joinpath(@__DIR__, "model.json"))
+    model2 = loadmlp(joinpath(@__DIR__, "model.json"))
 end # end of @compile_workload
 
 end
