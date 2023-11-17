@@ -15,8 +15,8 @@ using Flux
 
 include("utils.jl")
 
-export MLP, train!, displaynetwork, save, loadmlp, swish, swish_prime, relu, relu, mse, mse_prime, TurboNorm, TurboDense, TurboLayerNorm
-export gelu, gelu_prime, none_activation, none_activation_prime
+export MLP, train!, displaynetwork, save, loadmlp, swish, swish_prime, relu, relu_prime, mse, mse_prime, TurboNorm, TurboDense, TurboLayerNorm
+export gelu, gelu_prime, none_activation, none_activation_prime, convert2turbo, mynormalize, addnormlayer, unmynormalize
 
 @compile_workload begin
     input_size = 1

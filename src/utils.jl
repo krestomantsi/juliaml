@@ -349,14 +349,14 @@ end
     @inbounds for ii in 1:length(mlp.layers)
         mw = @turbo @. b * adam.m.layers[ii].weights + b11 * grads.layers[ii].weights
         mb = @turbo @. b * adam.m.layers[ii].bias + b11 * grads.layers[ii].bias
-        vw = @turbo @. b2 * adam.v.layers[ii].weights + b22 * grads.layers[ii].weights ^ 2
-        vb = @turbo @. b2 * adam.v.layers[ii].bias + b22 * grads.layers[ii].bias ^ 2
+        vw = @turbo @. b2 * adam.v.layers[ii].weights + b22 * grads.layers[ii].weights^2
+        vb = @turbo @. b2 * adam.v.layers[ii].bias + b22 * grads.layers[ii].bias^2
         mhatw = @turbo @. mw / (1.0f0 - b^adam.t)
         mhatb = @turbo @. mb / (1.0f0 - b^adam.t)
         vhatw = @turbo @. sqrt(vw / (1.0f0 - b2^adam.t))
         vhatb = @turbo @. sqrt(vb / (1.0f0 - b2^adam.t))
         weights = @turbo @. mlp.layers[ii].weights - adam.lr * mhatw / (vhatw + adam.epsilon) - adam.lambda * mlp.layers[ii].weights
-        bias    = @turbo @. mlp.layers[ii].bias - adam.lr * mhatb / (vhatb + adam.epsilon) - adam.lambda * mlp.layers[ii].bias
+        bias = @turbo @. mlp.layers[ii].bias - adam.lr * mhatb / (vhatb + adam.epsilon) - adam.lambda * mlp.layers[ii].bias
         @turbo adam.m.layers[ii].weights = mw # |> copy
         @turbo adam.m.layers[ii].bias = mb # |> copy
         @turbo adam.v.layers[ii].weights = vw # |> copy
@@ -374,7 +374,7 @@ function train!(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, lr::Float32, w
     @inbounds for ii in 1:epochs
         _outputs, grads = backward(mlp, x, y, loss_prime)
         #mlp = adamw!(mlp, grads, opt)
-        adamw!(mlp,grads,opt)
+        adamw!(mlp, grads, opt)
         if ii % 1500 == 0
             println("epoch ", ii, " || loss: ", loss(mlp(x), y))
         end
@@ -419,7 +419,7 @@ end
 
     save the model to a json file
 """
-function save(model::MLP, fname)
+function save(model::MLP, fname::String)
     n = model.layers |> length
     dic = Dict()
     dic["n_layers"] = n
@@ -435,7 +435,7 @@ end
 
     load a Turbo model from a json file
 """
-function loadmlp(fname)::MLP
+function loadmlp(fname::String)::MLP
     dic = JSON.parsefile(fname; dicttype=Dict, inttype=Int64, use_mmap=true)
     n = dic["n_layers"]
     layers = []
@@ -555,10 +555,29 @@ function (m::ConsModel)(x, xtypes)
     return m.mlp(x2)
 end
 
-function loadconsmodel(fname)
+function loadconsmodel(fname::String)
     # add some options here
     mlp = loadmlp(fname * "/mlp.json")
     mlpenc = loadmlp(fname * "/mlpenc.json")
     uniq_ship_types = JSON.parsefile(fname * "/vessel_types_onehot.json"; dicttype=Dict, inttype=Int64, use_mmap=true) .|> String
     ConsModel(mlpenc, mlp), uniq_ship_types
+end
+
+function save(model::Chain, fname::String)
+    model = convert2turbo(model)
+    save(model, fname)
+end
+
+@inline function mynormalize(x::Matrix{Float32}, mean::Matrix{Float32}, std::Matrix{Float32}, eps::Float32)::Matrix{Float32}
+    @turbo @. (x - mean) / (std + eps)
+end
+
+@inline function unmynormalize(x::Matrix{Float32}, mean::Matrix{Float32}, std::Matrix{Float32}, eps::Float32)::Matrix{Float32}
+    @turbo @. x * (std + eps) + mean
+end
+
+function addnormlayer(mlp::MLP, xmean::Matrix{Float32}, xstd::Matrix{Float32}, eps::Float32)::MLP
+    layers = mlp.layers |> deepcopy
+    layers = pushfirst!(layers, TurboNorm(eps, xmean, xstd))
+    return MLP(layers)
 end
