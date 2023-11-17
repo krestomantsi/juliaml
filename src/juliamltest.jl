@@ -1,5 +1,3 @@
-module juliaml
-
 using LinearAlgebra
 using LoopVectorization
 using Plots
@@ -21,7 +19,7 @@ output_size = 1
 hidden_size = 32
 activation = swish
 activation_prime = swish_prime
-epochs = 30_000
+epochs = 1_000
 lr = 0.01f0
 wd = 0.00001f0
 n = 100
@@ -49,8 +47,16 @@ scatter(x', y', label="data")
 display(plot!(x2', y2', label="model"))
 savefig("result.png")
 
+grads = []
+output, uh = backward(model, x, y, mse_prime)
+push!(grads, uh)
+push!(grads, uh)
+xv = [x x]
+yv = [y y]
+
+using ParallelMapReduce
+pmapreduce((x, y) -> backward(model, x, y, mse_prime), mlpadd, xv, yv)
+
 
 # testing parallel forward
-# function parallel_backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime)
-# end
-end
+
