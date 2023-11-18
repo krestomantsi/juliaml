@@ -13,7 +13,6 @@ using PrecompileTools
 # testing using
 using juliaml
 
-
 input_size = 1
 output_size = 1
 hidden_size = 32
@@ -54,8 +53,6 @@ push!(grads, uh)
 xv = [x x]
 yv = [y y]
 
-using ParallelMapReduce
-pmapreduce((x, y) -> backward(model, x, y, mse_prime), mlpadd, xv, yv)
 
 
 # testing parallel forward

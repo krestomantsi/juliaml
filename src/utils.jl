@@ -52,12 +52,12 @@ function gelu_prime(x::Matrix{Float32})::Matrix{Float32}
     0.5f0 .* (1.0f0 .+ x .* (1.0f0 .+ 3.0f0 .* x .^ 2 .* a) .* lam .* sech.(lam .* (x .+ x .^ 3 .* a)) .^ 2 .+ tanh_term)
 end
 
-function gelu(x)
+function gelu(x)::Float32
     pif32 = Float32(pi)
     0.5f0 * x * (1.0f0 + tanh(sqrt(2.0f0 / pif32) * (x + 0.044715f0 * x^3)))
 end
 
-function gelu_prime(x)
+function gelu_prime(x)::Float32
     pif32 = Float32(pi)
     lam = sqrt(2.0f0 / pif32)
     a = 0.044715f0
@@ -104,7 +104,7 @@ end
     W::Matrix{Float32},
     b::Matrix{Float32},
     x::Matrix{Float32}
-)
+)::Matrix{Float32}
     C = zeros(eltype(x), size(W, 1), size(x, 2))
     @turbo for m ∈ axes(W, 1), n ∈ axes(x, 2)
         Cmn = zero(eltype(C))
@@ -186,7 +186,7 @@ function mse_prime(x::Matrix{Float32}, y::Matrix{Float32})::Matrix{Float32}
 end
 
 
-function MLP(input_size::Int, hidden_size::Int, output_size::Int, activation::Function, activation_prime::Function)
+function MLP(input_size::Int, hidden_size::Int, output_size::Int, activation::Function, activation_prime::Function)::MLP
     weights1 = (randn(Float32, hidden_size, input_size) ./ (sqrt(hidden_size) |> Float32))
     bias1 = zeros(Float32, hidden_size, 1)
     weights2 = (randn(Float32, hidden_size, hidden_size) ./ (sqrt(hidden_size) |> Float32))
@@ -204,7 +204,7 @@ function MLP(input_size::Int, hidden_size::Int, output_size::Int, activation::Fu
     MLP(layers)
 end
 
-@inline function backward(d::TurboDense, x::Matrix{Float32}, z::Matrix{Float32}, pullback::Matrix{Float32})
+@inline function backward(d::TurboDense, x::Matrix{Float32}, z::Matrix{Float32}, pullback::Matrix{Float32})::Tuple{Matrix{Float32},TurboDenseGradient}
     #m = size(x, 2) |> Float32
     dz = pullback .* d.activation_prime(z)
     bias = sum(dz, dims=2)
@@ -214,7 +214,7 @@ end
     return pullback, grads
 end
 
-function backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime::typeof(mse_prime))
+function backward(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, loss_prime::typeof(mse_prime))::Tuple{Vector{Matrix{Float32}},MLPGradient}
     # forward pass
     output::Vector{Matrix{Float32}} = []
     push!(output, x)
@@ -549,13 +549,13 @@ struct ConsModel
     mlp::MLP
 end
 
-function (m::ConsModel)(x, xtypes)
+function (m::ConsModel)(x, xtypes)::Matrix{Float32}
     x1 = m.mlpenc(xtypes)
     x2 = vcat(x, x1)
     return m.mlp(x2)
 end
 
-function loadconsmodel(fname::String)
+function loadconsmodel(fname::String)::Tuple{ConsModel,Vector{String}}
     # add some options here
     mlp = loadmlp(fname * "/mlp.json")
     mlpenc = loadmlp(fname * "/mlpenc.json")
@@ -580,4 +580,15 @@ function addnormlayer(mlp::MLP, xmean::Matrix{Float32}, xstd::Matrix{Float32}, e
     layers = mlp.layers |> deepcopy
     layers = pushfirst!(layers, TurboNorm(eps, xmean, xstd))
     return MLP(layers)
+end
+
+# define addition for mlpgradient
+function mlpadd(a::MLPGradient, b::MLPGradient)::MLPGradient
+    layers = []
+    for ii in 1:length(a.layers)
+        weights = a.layers[ii].weights + b.layers[ii].weights
+        bias = a.layers[ii].bias + b.layers[ii].bias
+        push!(layers, TurboDenseGradient(weights, bias))
+    end
+    return MLPGradient(layers)
 end
