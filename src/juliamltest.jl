@@ -10,7 +10,6 @@ using DataFrames
 using CSV
 using JSON
 using PrecompileTools
-using MLUtils
 using Folds
 # testing using
 using juliaml
@@ -20,10 +19,10 @@ output_size = 1
 hidden_size = 32
 activation = swish
 activation_prime = swish_prime
-epochs = 1_000
+epochs = 30_000
 lr = 0.01f0
 wd = 0.00001f0
-n = 100
+n = 10_000
 
 model = MLP(input_size, hidden_size, output_size, activation, activation_prime)
 
@@ -34,7 +33,7 @@ y = sin.(4 * Float32(pi) * x)
 
 y2 = model(x)
 
-@time model = train!(model, x, y, lr, wd, epochs, mse, mse_prime, false)
+@time model = train!(model, x, y, lr, wd, epochs, mse, mse_prime, true)
 
 displaynetwork(model, x, y, mse_prime)
 
@@ -47,11 +46,6 @@ y2 = model2(x2)
 scatter(x', y', label="data")
 display(plot!(x2', y2', label="model"))
 savefig("result.png")
-
-
-xt = chunk(x, 32)
-yt = chunk(y, 32)
-_outputs, grads = Folds.mapreduce((x, y) -> backward(model, x, y, mse_prime)[2], +, xt, yt, ThreadedEx())
 
 # testing parallel forward
 

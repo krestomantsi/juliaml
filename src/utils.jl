@@ -368,8 +368,7 @@ end
     #MLP(layers)
 end
 
-@inline function chunk(x::Matrix{Float32})::Vector{Matrix{Float32}}
-    batch_size = 32
+@inline function chunk(x::Matrix{Float32}, batch_size::Int)::Vector{Matrix{Float32}}
     x_tuple = []
     for ii in 1:batch_size:size(x, 2)
         if ii + batch_size - 1 > size(x, 2)
@@ -394,12 +393,13 @@ function train!(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, lr::Float32, w
             end
         end
     else
-        batch_size = 32
+        nx = size(x, 2)
+        batch_size = nx ÷ 16
         x_tuple = chunk(x, batch_size)
         y_tuple = chunk(y, batch_size)
         nbatch = length(x_tuple) |> Float32
         @inbounds for ii in 1:epochs
-            _outputs, grads = Folds.mapreduce((x, y) -> backward(mlp, x, y, loss_prime)[2], +, x_tuple, y_tuple, ThreadedEx())
+            grads = Folds.mapreduce((x, y) -> backward(mlp, x, y, loss_prime)[2], +, x_tuple, y_tuple, ThreadedEx())
             grads = fmap(grads, x -> x / nbatch)
             adamw!(mlp, grads, opt)
             if ii % 1500 == 0
