@@ -47,5 +47,4 @@ scatter(x', y', label="data")
 display(plot!(x2', y2', label="model"))
 savefig("result.png")
 
-# testing parallel forward
 
