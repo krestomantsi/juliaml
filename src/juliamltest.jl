@@ -10,6 +10,8 @@ using DataFrames
 using CSV
 using JSON
 using PrecompileTools
+using MLUtils
+using Folds
 # testing using
 using juliaml
 
@@ -46,14 +48,10 @@ scatter(x', y', label="data")
 display(plot!(x2', y2', label="model"))
 savefig("result.png")
 
-grads = []
-output, uh = backward(model, x, y, mse_prime)
-push!(grads, uh)
-push!(grads, uh)
-xv = [x x]
-yv = [y y]
 
-
+xt = chunk(x, 32)
+yt = chunk(y, 32)
+_outputs, grads = Folds.mapreduce((x, y) -> backward(model, x, y, mse_prime)[2], +, xt, yt, ThreadedEx())
 
 # testing parallel forward
 

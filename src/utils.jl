@@ -368,15 +368,43 @@ end
     #MLP(layers)
 end
 
+@inline function chunk(x::Matrix{Float32})::Vector{Matrix{Float32}}
+    batch_size = 32
+    x_tuple = []
+    for ii in 1:batch_size:size(x, 2)
+        if ii + batch_size - 1 > size(x, 2)
+            push!(x_tuple, x[:, ii:end])
+        else
+            push!(x_tuple, x[:, ii:ii+batch_size-1])
+        end
+    end
+    return x_tuple
+end
+
 function train!(mlp::MLP, x::Matrix{Float32}, y::Matrix{Float32}, lr::Float32, wd::Float32, epochs::Int, loss::Function, loss_prime::Function, parallel::Bool)
     _outputs, grads = backward(mlp, x, y, loss_prime)
     opt = adam_init(grads, lr, wd, 0.9f0, 0.999f0)
-    @inbounds for ii in 1:epochs
-        _outputs, grads = backward(mlp, x, y, loss_prime)
-        #mlp = adamw!(mlp, grads, opt)
-        adamw!(mlp, grads, opt)
-        if ii % 1500 == 0
-            println("epoch ", ii, " || loss: ", loss(mlp(x), y))
+    if parallel == false
+        @inbounds for ii in 1:epochs
+            _outputs, grads = backward(mlp, x, y, loss_prime)
+            #mlp = adamw!(mlp, grads, opt)
+            adamw!(mlp, grads, opt)
+            if ii % 1500 == 0
+                println("epoch ", ii, " || loss: ", loss(mlp(x), y))
+            end
+        end
+    else
+        batch_size = 32
+        x_tuple = chunk(x, batch_size)
+        y_tuple = chunk(y, batch_size)
+        nbatch = length(x_tuple) |> Float32
+        @inbounds for ii in 1:epochs
+            _outputs, grads = Folds.mapreduce((x, y) -> backward(mlp, x, y, loss_prime)[2], +, x_tuple, y_tuple, ThreadedEx())
+            grads = fmap(grads, x -> x / nbatch)
+            adamw!(mlp, grads, opt)
+            if ii % 1500 == 0
+                println("epoch ", ii, " || loss: ", loss(mlp(x), y))
+            end
         end
     end
     return mlp
@@ -583,7 +611,18 @@ function addnormlayer(mlp::MLP, xmean::Matrix{Float32}, xstd::Matrix{Float32}, e
 end
 
 # define addition for mlpgradient
-function mlpadd(a::MLPGradient, b::MLPGradient)::MLPGradient
+function addmlp(a::MLPGradient, b::MLPGradient)::MLPGradient
+    layers = []
+    for ii in 1:length(a.layers)
+        weights = a.layers[ii].weights + b.layers[ii].weights
+        bias = a.layers[ii].bias + b.layers[ii].bias
+        push!(layers, TurboDenseGradient(weights, bias))
+    end
+    return MLPGradient(layers)
+end
+
+# define + for mlpgradient
+function Base.:+(a::MLPGradient, b::MLPGradient)::MLPGradient
     layers = []
     for ii in 1:length(a.layers)
         weights = a.layers[ii].weights + b.layers[ii].weights

@@ -12,13 +12,14 @@ using CSV
 using JSON
 using PrecompileTools
 using Flux
+using Folds
 
 include("utils.jl")
 
 export MLP, MLPGradient, train!, displaynetwork, save, loadmlp, swish, swish_prime, relu, relu_prime, mse, mse_prime, TurboNorm, TurboDense, TurboLayerNorm
 export gelu, gelu_prime, none_activation, none_activation_prime, convert2turbo, mynormalize, addnormlayer, unmynormalize, backward
 # delete those exports
-export mlpadd
+export addmlp, chunk
 
 @compile_workload begin
     input_size = 1
